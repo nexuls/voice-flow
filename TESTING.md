@@ -167,6 +167,41 @@ Verified by hand on niri:
 | No AppIndicator library: no tray, no crash (warning logged)               | ok                                          |
 | Start on login toggle                                                     | not tested live (official autostart plugin) |
 
+### Silence trimming and the no-speech gate
+
+```sh
+cargo run --release --manifest-path src-tauri/Cargo.toml --example eval_trim -- \
+  ~/.local/share/dev.voiceflow.app/models/whistle.cact
+```
+
+Measured (fixture speech inside synthetic silence or noise; WER against the
+fixture text; first of three runs):
+
+| Recording                            | Full: WER / time | Trimmed: WER / time |
+| ------------------------------------ | ---------------- | ------------------- |
+| 2.5 s + speech + 1.5 s, near silence | 33 % / 1.36 s    | 7 % / 0.78 s        |
+| same, noise amplitude 0.01           | 67 % / 5.9 s*    | 40 % / 2.2 s*       |
+| 1 s + speech + 1 s, noise 0.03       | 67 % / 0.89 s    | 73 % / 0.76 s       |
+
+\*Times vary up to 2× between runs because of other load on the test
+machine. Trimming was never slower. White noise alone returns an empty
+transcript from Whistle even without the gate. The gate targets irregular
+room sound, which produced invented text once in milestone 6. That case was
+not reproduced synthetically.
+
+### Long-running stability (release build)
+
+`scripts/dev/stability.sh`: 30 s idle, then 12 dictations
+through the virtual microphone, using an isolated `XDG_CONFIG_HOME` with
+auto-paste off.
+
+| Metric               | Result                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------- |
+| Idle CPU             | 2 ticks in 30 s (≈ 0.07 % of one core)                                                                |
+| RSS                  | 240 MB at start, 275 MB after the first dictation, levelling off at 297–299 MB from dictation 9 to 12 |
+| Dictations completed | 12 / 12. Speech trimmed from 7.5 s to 6.5 s. Release to text: median ≈ 0.8 s (0.76–1.37 s)            |
+| Shutdown             | process exited, no orphaned windows or sinks                                                          |
+
 ## Test environments
 
 | Environment                                                                           | Shortcut backend                                       | Result                                                                                                                                                |
@@ -179,7 +214,9 @@ Verified by hand on niri:
 
 ## Known limitations
 
-- **Noise without speech** can produce invented text. One run that
+- **Noise without speech** can produce invented text. The no-speech gate
+  (milestone 9) blocks recordings without energy clearly above the noise floor,
+  but loud non-speech sounds (music, typing) can still pass it. One run that
   captured only room noise from the real microphone returned a short French
   sentence. Whistle documents this for music and recommends a voice activity
   detector.

@@ -9,7 +9,7 @@
 //! Only the configured combination is evaluated. No key events are logged or
 //! stored.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::os::fd::{AsRawFd, RawFd};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -154,21 +154,28 @@ fn is_keyboard(device: &Device) -> bool {
     })
 }
 
-/// Opens every readable keyboard not already open. Returns how many device
-/// nodes were present and how many were denied.
-fn scan(open: &mut HashMap<PathBuf, Keyboard>) -> (usize, usize) {
+/// Opens every readable keyboard not already open. Nodes that are not
+/// keyboards are remembered in `rejected` and skipped until they disappear,
+/// so periodic rescans do not reopen every mouse and sensor. Returns how many
+/// device nodes were present and how many were denied.
+fn scan(open: &mut HashMap<PathBuf, Keyboard>, rejected: &mut HashSet<PathBuf>) -> (usize, usize) {
     let mut present = 0;
     let mut denied = 0;
     let Ok(entries) = std::fs::read_dir("/dev/input") else {
         return (0, 0);
     };
+    let mut seen = HashSet::new();
     for entry in entries.flatten() {
         let path = entry.path();
         let is_event = path
             .file_name()
             .and_then(|n| n.to_str())
             .is_some_and(|n| n.starts_with("event"));
-        if !is_event || open.contains_key(&path) {
+        if !is_event {
+            continue;
+        }
+        seen.insert(path.clone());
+        if open.contains_key(&path) || rejected.contains(&path) {
             continue;
         }
         present += 1;
@@ -185,11 +192,14 @@ fn scan(open: &mut HashMap<PathBuf, Keyboard>) -> (usize, usize) {
                     );
                 }
             }
-            Ok(_) => {}
+            Ok(_) => {
+                rejected.insert(path);
+            }
             Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => denied += 1,
             Err(_) => {}
         }
     }
+    rejected.retain(|p| seen.contains(p));
     (present, denied)
 }
 
@@ -198,6 +208,7 @@ fn run(
     sink: ShortcutSink,
     stop: Arc<AtomicBool>,
     mut keyboards: HashMap<PathBuf, Keyboard>,
+    mut rejected: HashSet<PathBuf>,
 ) {
     let mut tracker = ComboTracker::new(accel);
     let mut last_scan = Instant::now();
@@ -210,7 +221,7 @@ fn run(
 
     while !stop.load(Ordering::Relaxed) {
         if last_scan.elapsed() >= RESCAN_INTERVAL {
-            scan(&mut keyboards);
+            scan(&mut keyboards, &mut rejected);
             last_scan = Instant::now();
         }
         let paths: Vec<PathBuf> = keyboards.keys().cloned().collect();
@@ -292,7 +303,8 @@ impl ShortcutService for EvdevBackend {
     fn register(&mut self, accel: Accelerator, sink: ShortcutSink) -> Result<(), ShortcutError> {
         self.unregister();
         let mut keyboards = HashMap::new();
-        let (present, denied) = scan(&mut keyboards);
+        let mut rejected = HashSet::new();
+        let (present, denied) = scan(&mut keyboards, &mut rejected);
         if keyboards.is_empty() {
             return Err(if denied > 0 {
                 ShortcutError::PermissionDenied(
@@ -306,7 +318,7 @@ impl ShortcutService for EvdevBackend {
         self.stop = stop.clone();
         let thread = std::thread::Builder::new()
             .name("shortcut-evdev".into())
-            .spawn(move || run(accel, sink, stop, keyboards))
+            .spawn(move || run(accel, sink, stop, keyboards, rejected))
             .map_err(|e| ShortcutError::Failed(e.to_string()))?;
         self.thread = Some(thread);
         Ok(())

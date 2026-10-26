@@ -3,6 +3,7 @@
 pub mod audio;
 pub mod commands;
 pub mod config;
+pub mod diagnostics;
 pub mod events;
 pub mod executor;
 pub mod insertion;
@@ -142,6 +143,8 @@ pub fn run() {
             commands::settings::list_microphones,
             commands::settings::start_on_login_enabled,
             commands::settings::test_microphone,
+            commands::diagnostics_report,
+            commands::copy_diagnostics_report,
         ])
         .on_window_event(|window, event| {
             // Closing Settings keeps VoiceFlow running in the background.
@@ -164,9 +167,12 @@ pub fn run() {
             let overlay: Arc<dyn OverlayController> =
                 Arc::new(overlay::TauriOverlay::create(&handle)?);
 
+            let diagnostics = Arc::new(diagnostics::DiagnosticsLog::default());
             let emitter = handle.clone();
             let observer_overlay = overlay.clone();
+            let observer_diag = diagnostics.clone();
             let observer = move |t: &Transition| {
+                observer_diag.record_state(&t.to);
                 // Clicks are only needed for the manual-copy action.
                 let interactive = matches!(
                     t.to,
@@ -204,6 +210,7 @@ pub fn run() {
                 (None, Box::new(DiagnosticExecutor::with_levels(levels)))
             } else {
                 let timing_emitter = handle.clone();
+                let timing_diag = diagnostics.clone();
                 let services = live::Services::new(
                     live::AudioControl::spawn(Box::new(audio::cpal_capture::CpalCapture::new())),
                     transcription.clone(),
@@ -212,6 +219,7 @@ pub fn run() {
                     live_config.clone(),
                     levels,
                     Arc::new(move |t: &live::SessionTimings| {
+                        timing_diag.record_timings(t);
                         let _ = timing_emitter.emit(events::TIMINGS, t);
                     }),
                 );
@@ -241,12 +249,14 @@ pub fn run() {
             app.manage(AppState {
                 workflow,
                 shortcuts: Mutex::new(manager),
+                shortcut_status: RwLock::new(None),
                 insertion,
                 live_config,
                 services,
                 overlay,
                 settings: RwLock::new(settings.clone()),
                 settings_store: store,
+                diagnostics,
             });
             let models_dir = app.path().app_data_dir()?.join("models");
             let model_store = transcription::model::ModelStore::new(models_dir);
@@ -309,7 +319,9 @@ pub fn run() {
         if let RunEvent::Exit = event {
             let state = app.state::<AppState>();
             state.workflow.send(Input::Shutdown);
-            if let Ok(mut mgr) = state.shortcuts.lock() {
+            // try_lock: a registration waiting on a portal dialog must not
+            // block exit. The OS releases grabs when the process ends.
+            if let Ok(mut mgr) = state.shortcuts.try_lock() {
                 mgr.unregister();
             }
             tracing::info!("VoiceFlow stopped");

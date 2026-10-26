@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useDictationState } from "@/hooks/useDictationState";
 import { useSettings } from "@/hooks/useSettings";
 import { useTauriEvent } from "@/hooks/useTauriEvent";
 import { api, inTauri, on } from "@/lib/ipc";
@@ -19,6 +20,7 @@ import type {
   BackendPreference,
   LanguageCode,
   OverlayPosition,
+  SessionRecord,
   SessionTimings,
   ShortcutStatus,
   Transition,
@@ -62,7 +64,9 @@ export function SettingsApp() {
   const { settings, saving, warnings, error, update, dismissWarnings } = useSettings();
   const [shortcut, setShortcut] = useState<ShortcutStatus | null>(null);
   const [transitions, setTransitions] = useState<Transition[]>([]);
-  const [timings, setTimings] = useState<SessionTimings[]>([]);
+  const dictation = useDictationState();
+  const [records, setRecords] = useState<SessionRecord[]>([]);
+  const [reportCopied, setReportCopied] = useState(false);
 
   useEffect(() => {
     if (inTauri()) api.shortcutStatus().then(setShortcut);
@@ -72,9 +76,21 @@ export function SettingsApp() {
     on.transition,
     useCallback((t: Transition) => setTransitions((p) => [...p, t].slice(-MAX_ROWS)), []),
   );
+  const diagnosticsOn = settings?.diagnostics ?? false;
+  const refreshRecords = useCallback(() => {
+    if (inTauri()) api.diagnosticsReport().then((r) => setRecords(r.sessions.slice(0, MAX_ROWS)));
+  }, []);
+  useEffect(() => {
+    if (diagnosticsOn) refreshRecords();
+  }, [diagnosticsOn, refreshRecords]);
   useTauriEvent(
     on.timings,
-    useCallback((t: SessionTimings) => setTimings((p) => [t, ...p].slice(0, MAX_ROWS)), []),
+    useCallback(
+      (_: SessionTimings) => {
+        if (diagnosticsOn) refreshRecords();
+      },
+      [diagnosticsOn, refreshRecords],
+    ),
   );
 
   if (!settings) {
@@ -117,6 +133,20 @@ export function SettingsApp() {
           </div>
           <Button variant="ghost" size="xs" onClick={dismissWarnings}>
             Dismiss
+          </Button>
+        </div>
+      )}
+
+      {dictation.phase === "error" && dictation.hasTranscript && (
+        // Keyboard-reachable alternative to the overlay's Copy button (the
+        // overlay never takes focus).
+        <div
+          role="alert"
+          className="flex items-center gap-3 rounded-lg border bg-muted/40 p-3 text-sm"
+        >
+          <p className="flex-1">{dictation.error.message}. Your text was kept.</p>
+          <Button size="sm" onClick={() => api.copyTranscript()}>
+            Copy text
           </Button>
         </div>
       )}
@@ -320,7 +350,25 @@ export function SettingsApp() {
       {settings.diagnostics && (
         <Section title="Diagnostics">
           <div className="space-y-4 px-4 py-3">
-            <TimingsTable rows={timings} />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Kept in memory for the last 50 dictations. The report contains versions, backends,
+                settings and timings only.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  api.copyDiagnosticsReport().then(() => {
+                    setReportCopied(true);
+                    setTimeout(() => setReportCopied(false), 2000);
+                  })
+                }
+              >
+                {reportCopied ? "Copied" : "Copy report"}
+              </Button>
+            </div>
+            <TimingsTable rows={records} />
             <TransitionLog transitions={transitions} />
           </div>
         </Section>

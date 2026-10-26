@@ -16,6 +16,16 @@ VoiceFlow is local-first. Speech recognition runs entirely on your computer.
 - **Logs:** contain timings, state names and error kinds only, never audio or
   transcript text.
 
+## Diagnostics
+
+The optional diagnostics view and "Copy report" contain the app version, OS
+and architecture, session type, shortcut backend, engine and model status
+(file name only), settings (the microphone is reported only as `default` or
+`custom`) and, for the last 50 dictations, timings and outcome kinds such as
+`pasted` or `noSpeech`. They contain no audio, transcripts, window titles or
+device names. The data is kept in memory only and leaves the app only when you
+paste the report somewhere.
+
 ## Settings
 
 Preferences are stored locally as JSON (`settings.json` in the OS config

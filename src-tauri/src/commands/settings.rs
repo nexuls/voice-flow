@@ -61,6 +61,7 @@ pub fn apply_shortcut(app: &AppHandle, settings: &Settings) -> Result<ShortcutSt
     let mut mgr = state.shortcuts.lock().expect("shortcut lock");
     let result = mgr.register(settings.shortcut, settings.shortcut_backend);
     let status = mgr.status();
+    *state.shortcut_status.write().expect("status lock") = Some(status.clone());
     let _ = app.emit(events::SHORTCUT_STATUS, &status);
     result.map(|_| status).map_err(|e| e.to_string())
 }

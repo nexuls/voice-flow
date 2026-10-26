@@ -81,15 +81,21 @@ describe("TimingsTable", () => {
         rows={[
           {
             session: 3,
-            captureOpenMs: 69.4,
-            overlayVisibleMs: 108,
-            recordedMs: 8448,
-            finalizeMs: 14,
-            inferenceMs: 892,
-            engineTtftMs: 784,
-            insertMs: null,
-            releaseToInsertMs: 908,
+            outcome: "pasted",
+            timings: {
+              session: 3,
+              captureOpenMs: 69.4,
+              overlayVisibleMs: 108,
+              recordedMs: 8448,
+              transcribedMs: 6780,
+              finalizeMs: 14,
+              inferenceMs: 892,
+              engineTtftMs: 784,
+              insertMs: null,
+              releaseToInsertMs: 908,
+            },
           },
+          { session: 4, outcome: "noSpeech", timings: null },
         ]}
       />,
     );
@@ -97,5 +103,7 @@ describe("TimingsTable", () => {
     expect(row).toHaveTextContent("69 ms");
     expect(row).toHaveTextContent("8.45 s");
     expect(row).toHaveTextContent("—");
+    expect(row).toHaveTextContent("pasted");
+    expect(screen.getAllByRole("row")[2]).toHaveTextContent("noSpeech");
   });
 });

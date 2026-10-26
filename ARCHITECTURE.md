@@ -98,7 +98,9 @@ release ─▶ FinishCapture
            └─ AudioControl.finish → Recording (16 kHz)
                  < 300 ms         → CaptureEmpty(tooShort)
                  peak < 0.001     → CaptureEmpty(noSpeech: mic muted?)
-                 else TranscriptionService.transcribe → TranscriptReady / TranscriptionFailed
+                 no speech region → CaptureEmpty(noSpeech)
+                 else trim to the speech region → TranscriptionService.transcribe
+                      → TranscriptReady / TranscriptionFailed
 TranscriptReady ─▶ Insert → InsertionDone / InsertionFailed (transcript kept for copy)
 ```
 
@@ -135,3 +137,16 @@ after   → wait 600 ms → clipboard still ours? → restore saved text
   (start on login).
 - A tray menu (Settings…, Quit) is shown when an AppIndicator library is
   available. The tray crate would panic without one, so this is probed first.
+
+## Reliability notes (milestone 9 audit)
+
+- Workflow types (`Input`, `Effect`, `State`) have hand-written `Debug` impls
+  that replace transcript text with its length, so debug logs and panic
+  messages cannot leak dictated text (covered by a unit test).
+- Per-session contexts are pruned when a new session starts. Overlay reports
+  for unknown sessions are ignored.
+- The shortcut manager lock can be held while a portal dialog is open. Status
+  reads use a cached copy, and exit uses `try_lock`.
+- The evdev backend remembers non-keyboard devices, so its 2 s rescan does
+  not reopen them.
+- The tray is created only if an AppIndicator library can be loaded.

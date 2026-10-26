@@ -4,7 +4,7 @@ pub mod model;
 pub mod settings;
 
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 use crate::shortcuts::ShortcutStatus;
 use crate::state::AppState;
@@ -47,9 +47,21 @@ pub fn cancel_dictation(state: State<'_, AppState>) {
     state.workflow.send(Input::Cancel);
 }
 
+/// Never blocks: registration may hold the manager while a portal dialog is open.
 #[tauri::command]
 pub fn shortcut_status(state: State<'_, AppState>) -> ShortcutStatus {
-    state.shortcuts.lock().expect("shortcut lock").status()
+    if let Some(s) = state.shortcut_status.read().expect("status lock").clone() {
+        return s;
+    }
+    match state.shortcuts.try_lock() {
+        Ok(mgr) => mgr.status(),
+        Err(_) => ShortcutStatus {
+            accelerator: None,
+            backend: None,
+            session: crate::shortcuts::detect_session(),
+            error: None,
+        },
+    }
 }
 
 #[cfg(test)]
@@ -88,4 +100,78 @@ pub fn overlay_rendered(state: State<'_, AppState>, session: u64) {
     if let Some(s) = &state.services {
         s.overlay_rendered(session);
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagnosticsReport {
+    pub app: AppInfo,
+    pub session_type: crate::shortcuts::SessionKind,
+    pub shortcut: ShortcutStatus,
+    pub engine: Option<crate::transcription::EngineStatus>,
+    pub model: crate::transcription::model::ModelStatus,
+    /// Settings without device identifiers.
+    pub settings: serde_json::Value,
+    pub sessions: Vec<crate::diagnostics::SessionRecord>,
+}
+
+/// Builds a report for bug reports: versions, backends, settings and recent
+/// timings and outcomes. Contains no audio, transcripts, window titles or
+/// device names. Model paths are reduced to their file name.
+#[tauri::command]
+pub async fn diagnostics_report(app: AppHandle) -> Result<DiagnosticsReport, String> {
+    use crate::transcription::model::{ModelStatus, WHISTLE};
+    let state = app.state::<AppState>();
+    let models = app.state::<crate::state::ModelState>();
+    let mut settings = serde_json::to_value(&*state.settings.read().expect("settings lock"))
+        .map_err(|e| e.to_string())?;
+    if let Some(obj) = settings.as_object_mut() {
+        let custom = obj.get("microphone").is_some_and(|m| !m.is_null());
+        obj.insert(
+            "microphone".into(),
+            serde_json::Value::from(if custom { "custom" } else { "default" }),
+        );
+    }
+    let file_only =
+        |p: &std::path::Path| std::path::PathBuf::from(p.file_name().unwrap_or_default());
+    let model = match models.store.status(&WHISTLE) {
+        ModelStatus::Installed { path, size } => ModelStatus::Installed {
+            path: file_only(&path),
+            size,
+        },
+        ModelStatus::Invalid { path, reason } => ModelStatus::Invalid {
+            path: file_only(&path),
+            reason,
+        },
+        ModelStatus::Incomplete { path, bytes } => ModelStatus::Incomplete {
+            path: file_only(&path),
+            bytes,
+        },
+        other => other,
+    };
+    let mut engine = models.transcription.status().await;
+    if let Some(e) = engine.as_mut() {
+        e.model_path = e.model_path.as_deref().map(file_only);
+    }
+    Ok(DiagnosticsReport {
+        app: app_info_value(),
+        session_type: crate::shortcuts::detect_session(),
+        shortcut: shortcut_status(state.clone()),
+        engine,
+        model,
+        settings,
+        sessions: state.diagnostics.records(),
+    })
+}
+
+/// Copies the diagnostics report to the clipboard as JSON.
+#[tauri::command]
+pub async fn copy_diagnostics_report(app: AppHandle) -> Result<(), String> {
+    let report = diagnostics_report(app.clone()).await?;
+    let json = serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?;
+    app.state::<AppState>()
+        .insertion
+        .copy(json)
+        .await
+        .map_err(|e| e.to_string())
 }

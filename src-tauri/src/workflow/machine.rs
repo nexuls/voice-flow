@@ -60,7 +60,7 @@ pub enum InsertOutcome {
     CopiedToClipboard,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum State {
     Idle,
     Recording {
@@ -156,7 +156,7 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Input {
     ShortcutPressed,
     ShortcutReleased,
@@ -199,7 +199,7 @@ pub enum Input {
     Shutdown,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Effect {
     ShowOverlay,
     HideOverlay,
@@ -224,6 +224,85 @@ pub enum Effect {
         session: SessionId,
         after: Duration,
     },
+}
+
+/// Debug output that never contains transcript text: text is replaced by its
+/// length, so logs and panic messages stay free of dictated content.
+struct Redacted<'a>(&'a str);
+
+impl std::fmt::Debug for Redacted<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{} chars>", self.0.chars().count())
+    }
+}
+
+impl std::fmt::Debug for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // StateView has the same shape without the transcript.
+        std::fmt::Debug::fmt(&self.view(), f)
+    }
+}
+
+impl std::fmt::Debug for Input {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Input::TranscriptReady { session, text } => f
+                .debug_struct("TranscriptReady")
+                .field("session", session)
+                .field("text", &Redacted(text))
+                .finish(),
+            Input::InsertionFailed {
+                session,
+                error,
+                text,
+            } => f
+                .debug_struct("InsertionFailed")
+                .field("session", session)
+                .field("error", error)
+                .field("text", &Redacted(text))
+                .finish(),
+            Input::CaptureLimitReached { session } | Input::Dismiss { session } => f
+                .debug_struct(self.kind())
+                .field("session", session)
+                .finish(),
+            Input::CaptureFailed { session, error }
+            | Input::CaptureEmpty { session, error }
+            | Input::TranscriptionFailed { session, error } => f
+                .debug_struct(self.kind())
+                .field("session", session)
+                .field("error", error)
+                .finish(),
+            Input::InsertionDone { session, outcome } => f
+                .debug_struct("InsertionDone")
+                .field("session", session)
+                .field("outcome", outcome)
+                .finish(),
+            Input::ShortcutPressed | Input::ShortcutReleased | Input::Cancel | Input::Shutdown => {
+                f.write_str(self.kind())
+            }
+        }
+    }
+}
+
+impl std::fmt::Debug for Effect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Effect::ShowOverlay => f.write_str("ShowOverlay"),
+            Effect::HideOverlay => f.write_str("HideOverlay"),
+            Effect::BeginCapture { session } => write!(f, "BeginCapture({session})"),
+            Effect::FinishCapture { session } => write!(f, "FinishCapture({session})"),
+            Effect::AbortCapture { session } => write!(f, "AbortCapture({session})"),
+            Effect::CancelTranscription { session } => write!(f, "CancelTranscription({session})"),
+            Effect::Insert { session, text } => f
+                .debug_struct("Insert")
+                .field("session", session)
+                .field("text", &Redacted(text))
+                .finish(),
+            Effect::ScheduleDismiss { session, after } => {
+                write!(f, "ScheduleDismiss({session}, {after:?})")
+            }
+        }
+    }
 }
 
 pub const SUCCESS_DISMISS: Duration = Duration::from_millis(900);
@@ -370,7 +449,7 @@ impl Machine {
             // Anything else is a duplicate, a stale result or a no-op. Pressing
             // during processing is ignored so the current transcript survives.
             (_, input) => {
-                tracing::debug!(?input, "ignored input");
+                tracing::debug!(input = ?input, "ignored input");
                 None
             }
         };
@@ -664,6 +743,47 @@ mod tests {
             m.handle(Input::Shutdown);
             assert_eq!(m.state(), &State::Idle, "after {steps} steps");
         }
+    }
+
+    #[test]
+    fn debug_output_never_contains_transcript_text() {
+        let secret = "my secret dictation";
+        let dbg = [
+            format!(
+                "{:?}",
+                Input::TranscriptReady {
+                    session: 1,
+                    text: secret.into()
+                }
+            ),
+            format!(
+                "{:?}",
+                Input::InsertionFailed {
+                    session: 1,
+                    error: err(ErrorKind::Insertion),
+                    text: secret.into()
+                }
+            ),
+            format!(
+                "{:?}",
+                Effect::Insert {
+                    session: 1,
+                    text: secret.into()
+                }
+            ),
+            format!(
+                "{:?}",
+                State::Error {
+                    session: 1,
+                    error: err(ErrorKind::Insertion),
+                    transcript: Some(secret.into())
+                }
+            ),
+        ];
+        for d in &dbg {
+            assert!(!d.contains("secret"), "leaked: {d}");
+        }
+        assert!(dbg[0].contains("<19 chars>"));
     }
 
     #[test]

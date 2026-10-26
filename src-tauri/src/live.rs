@@ -17,7 +17,7 @@ use tokio::sync::oneshot;
 
 use crate::audio::{
     AudioCaptureService, CaptureConfig, CaptureError, CaptureEvent, CaptureEvents, CaptureInfo,
-    Recording,
+    Recording, speech,
 };
 use crate::insertion::{InsertTarget, InsertionWorker};
 use crate::transcription::{CancelToken, EngineError, TranscribeOptions, TranscriptionService};
@@ -46,6 +46,8 @@ pub struct SessionTimings {
     /// Press to the overlay showing the recording state (reported by the overlay).
     pub overlay_visible_ms: Option<f64>,
     pub recorded_ms: Option<f64>,
+    /// Audio passed to the engine after silence trimming.
+    pub transcribed_ms: Option<f64>,
     /// Release to finalised 16 kHz audio (stop, drain and resample).
     pub finalize_ms: Option<f64>,
     /// Audio ready to transcript ready (engine call plus queueing).
@@ -272,15 +274,38 @@ impl Services {
         }
     }
 
-    /// Called by the overlay once it has rendered the recording state.
+    /// Called by the overlay once it has rendered the recording state. Ids of
+    /// unknown sessions are ignored (the value comes from the webview).
     pub fn overlay_rendered(&self, s: SessionId) {
-        self.with(s, |ctx| {
-            if let Some(p) = ctx.pressed_at
-                && ctx.timings.overlay_visible_ms.is_none()
-            {
-                ctx.timings.overlay_visible_ms = Some(ms(p.elapsed()));
-            }
-        });
+        let mut map = self.sessions.lock().expect("sessions lock");
+        if let Some(ctx) = map.get_mut(&s)
+            && let Some(p) = ctx.pressed_at
+            && ctx.timings.overlay_visible_ms.is_none()
+        {
+            ctx.timings.overlay_visible_ms = Some(ms(p.elapsed()));
+        }
+    }
+
+    /// Only one dictation runs at a time. Contexts of earlier sessions that
+    /// ended without reaching `close` (for example after a microphone error)
+    /// are reported and dropped here.
+    fn prune_except(&self, keep: SessionId) {
+        let stale: Vec<SessionId> = self
+            .sessions
+            .lock()
+            .expect("sessions lock")
+            .keys()
+            .copied()
+            .filter(|s| *s != keep)
+            .collect();
+        for s in stale {
+            self.close(s);
+        }
+    }
+
+    #[cfg(test)]
+    fn open_sessions(&self) -> usize {
+        self.sessions.lock().expect("sessions lock").len()
     }
 
     /// Current capture and transcription options. Transcripts are never stored
@@ -303,6 +328,7 @@ impl LiveExecutor {
     fn begin(&self, s: SessionId, handle: &WorkflowHandle) {
         let svc = self.services.clone();
         let now = Instant::now();
+        svc.prune_except(s);
         svc.with(s, |ctx| ctx.pressed_at = Some(now));
 
         if !svc.engine_ready.load(Ordering::SeqCst) {
@@ -415,9 +441,24 @@ impl LiveExecutor {
                 return;
             }
 
+            // Trim silence and skip recordings without speech (see
+            // audio::speech for the measured effect on accuracy and latency).
+            let Some(region) = speech::detect(&rec.samples) else {
+                h.send(Input::CaptureEmpty {
+                    session: s,
+                    error: DictationError::new(ErrorKind::NoSpeech, "No speech detected"),
+                });
+                svc.close(s);
+                return;
+            };
             let mut rec = rec;
-            let samples = std::mem::take(&mut rec.samples);
+            let mut samples = std::mem::take(&mut rec.samples);
             drop(rec);
+            samples.truncate(region.end);
+            samples.drain(..region.start);
+            svc.with(s, |ctx| {
+                ctx.timings.transcribed_ms = Some(samples.len() as f64 / 16.0)
+            });
             let (_, options) = svc.options();
             let infer_start = Instant::now();
             let (cancel, result) = svc.transcription.transcribe(samples, options);
@@ -589,6 +630,7 @@ mod tests {
     }
 
     struct Harness {
+        services: Arc<Services>,
         handle: WorkflowHandle,
         phases: Arc<Mutex<Vec<String>>>,
         inserted: Arc<Mutex<Vec<String>>>,
@@ -647,7 +689,7 @@ mod tests {
         let p2 = phases.clone();
         let (handle, _task) = controller::spawn(
             &tokio::runtime::Handle::current(),
-            LiveExecutor::new(services),
+            LiveExecutor::new(services.clone()),
             move |t: &Transition| {
                 let v = serde_json::to_value(&t.to).unwrap();
                 p2.lock()
@@ -656,6 +698,7 @@ mod tests {
             },
         );
         Harness {
+            services,
             handle,
             phases,
             inserted,
@@ -811,6 +854,35 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn noise_only_recording_is_not_transcribed() {
+        // Steady noise well above the silent-microphone threshold.
+        let mut x = 7u32;
+        let audio = (0..32_000)
+            .map(|_| {
+                x ^= x << 13;
+                x ^= x >> 17;
+                x ^= x << 5;
+                (x as f32 / u32::MAX as f32 * 2.0 - 1.0) * 0.02
+            })
+            .collect();
+        let h = harness(Opts {
+            audio,
+            ..Default::default()
+        });
+        h.handle.send(Input::ShortcutPressed);
+        h.handle.send(Input::ShortcutReleased);
+        wait_for(&h, "error").await;
+        match state(&h).await {
+            StateView::Error { error, .. } => {
+                assert_eq!(error.kind, ErrorKind::NoSpeech);
+                assert_eq!(error.message, "No speech detected");
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(h.inserted.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn cancel_during_processing_discards_result() {
         let h = harness(Opts {
             engine: MockEngine {
@@ -850,6 +922,28 @@ mod tests {
         wait_for(&h, "success").await;
         assert_eq!(*h.inserted.lock().unwrap(), ["mock transcript"]);
         assert_eq!(h.starts.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn session_contexts_do_not_leak() {
+        let h = harness(Opts {
+            fail_start: Some(CaptureError::Disconnected),
+            ..Default::default()
+        });
+        for _ in 0..5 {
+            h.handle.send(Input::ShortcutPressed);
+            wait_for(&h, "error").await;
+            h.handle.send(Input::ShortcutReleased);
+        }
+        // Unknown ids from the webview must not create entries.
+        for id in 1000..1100 {
+            h.services.overlay_rendered(id);
+        }
+        assert!(
+            h.services.open_sessions() <= 1,
+            "{} contexts",
+            h.services.open_sessions()
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]

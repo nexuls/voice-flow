@@ -38,5 +38,5 @@ on-device with Cactus Whistle on the Needle engine.
 - [x] 6. End-to-end push-to-talk workflow
 - [x] 7. Reliable text insertion
 - [x] 8. Settings and configuration
-- [ ] 9. Reliability and accessibility
+- [x] 9. Reliability and accessibility
 - [ ] 10. Packaging and release readiness

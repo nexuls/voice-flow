@@ -80,3 +80,7 @@ required-features = ["needle"]
 [[test]]
 name = "whistle"
 required-features = ["needle"]
+
+[[example]]
+name = "eval_trim"
+required-features = ["needle"]

@@ -137,9 +137,31 @@ export interface SessionTimings {
   captureOpenMs: number | null;
   overlayVisibleMs: number | null;
   recordedMs: number | null;
+  transcribedMs: number | null;
   finalizeMs: number | null;
   inferenceMs: number | null;
   engineTtftMs: number | null;
   insertMs: number | null;
   releaseToInsertMs: number | null;
+}
+
+export interface SessionRecord {
+  session: number;
+  outcome: string | null;
+  timings: SessionTimings | null;
+}
+
+export interface DiagnosticsReport {
+  app: AppInfo;
+  sessionType: SessionKind;
+  shortcut: ShortcutStatus;
+  engine: {
+    engine: string;
+    loaded: boolean;
+    modelPath: string | null;
+    loadMs: number | null;
+  } | null;
+  model: ModelStatus;
+  settings: Record<string, unknown>;
+  sessions: SessionRecord[];
 }

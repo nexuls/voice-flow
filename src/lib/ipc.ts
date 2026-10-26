@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
   type AppInfo,
   type AudioLevel,
+  type DiagnosticsReport,
   EVENTS,
   type InputDevice,
   type MicTestResult,
@@ -32,6 +33,8 @@ export const api = {
   listMicrophones: () => invoke<InputDevice[]>("list_microphones"),
   startOnLoginEnabled: () => invoke<boolean>("start_on_login_enabled"),
   testMicrophone: (seconds: number) => invoke<MicTestResult>("test_microphone", { seconds }),
+  diagnosticsReport: () => invoke<DiagnosticsReport>("diagnostics_report"),
+  copyDiagnosticsReport: () => invoke<void>("copy_diagnostics_report"),
 };
 
 export const on = {

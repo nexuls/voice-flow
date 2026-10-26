@@ -4,17 +4,21 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::config::{Settings, SettingsStore};
+use crate::diagnostics::DiagnosticsLog;
 use crate::insertion::InsertionWorker;
 use crate::live::{LiveConfig, Services};
 use crate::overlay::OverlayController;
-use crate::shortcuts::ShortcutManager;
+use crate::shortcuts::{ShortcutManager, ShortcutStatus};
 use crate::transcription::TranscriptionService;
 use crate::transcription::model::ModelStore;
 use crate::workflow::WorkflowHandle;
 
 pub struct AppState {
     pub workflow: WorkflowHandle,
+    /// Held while (re)registering, which may wait for a portal dialog.
     pub shortcuts: Mutex<ShortcutManager>,
+    /// Last known shortcut status, readable while registration is in progress.
+    pub shortcut_status: RwLock<Option<ShortcutStatus>>,
     pub insertion: Arc<InsertionWorker>,
     pub live_config: Arc<RwLock<LiveConfig>>,
     /// `None` in diagnostic mode.
@@ -22,6 +26,7 @@ pub struct AppState {
     pub overlay: Arc<dyn OverlayController>,
     pub settings: RwLock<Settings>,
     pub settings_store: SettingsStore,
+    pub diagnostics: Arc<DiagnosticsLog>,
 }
 
 /// Speech model files, engine and the install in progress, if any.

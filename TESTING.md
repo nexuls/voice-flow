@@ -33,20 +33,39 @@ services.
 Automated variant on Linux without touching the keyboard:
 
 ```sh
-VOICEFLOW_SHORTCUT=F20 VOICEFLOW_LOG=voiceflow_lib=debug ./src-tauri/target/debug/voiceflow &
-cargo run --manifest-path src-tauri/Cargo.toml --example hold_key -- F20 1200
+VOICEFLOW_SHORTCUT=F19 VOICEFLOW_LOG=voiceflow_lib=debug ./src-tauri/target/debug/voiceflow &
+cargo run --manifest-path src-tauri/Cargo.toml --example hold_key -- F19 1200
 ```
+
+The compositor also receives keys from the virtual keyboard. Use F19 only:
+in the default XKB map, F20 is `XF86AudioMicMute` and F21-F23 toggle the
+touchpad.
+
+### Overlay
+
+1. Hold the shortcut. The pill should appear at the bottom-center within roughly
+   100 ms, with a moving waveform (synthetic levels in diagnostic mode).
+2. The focused application must keep keyboard focus. Type while holding the
+   shortcut: the keystrokes should still reach that application.
+3. Release. The pill should show "Transcribing…", then a success message, then disappear.
+4. Click where the pill is. The click should reach the window underneath.
+5. Multi-monitor (X11/Windows/macOS): move the cursor to another monitor and hold the
+   shortcut. The pill should appear on that monitor.
 
 ## Test environments
 
-| Environment                                                                           | Shortcut backend                                       | Result                                                   |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------- |
-| Arch Linux, niri 26.04 (Wayland), xdg-desktop-portal 1.22 with the gtk/gnome backends | Portal refused the bind (`Other`). Fell back to evdev. | evdev: press/release verified with uinput and in the app |
-| X11                                                                                   | global-hotkey                                          | not yet tested                                           |
-| Windows                                                                               | global-hotkey                                          | not yet tested                                           |
-| macOS                                                                                 | global-hotkey                                          | not yet tested                                           |
+| Environment                                                                           | Shortcut backend                                       | Result                                                                                                                                                |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Arch Linux, niri 26.04 (Wayland), xdg-desktop-portal 1.22 with the gtk/gnome backends | Portal refused the bind (`Other`). Fell back to evdev. | evdev: press/release verified with uinput and in the app. Overlay: layer surface verified by screenshot. It does not take focus (`niri msg windows`). |
+| X11                                                                                   | global-hotkey                                          | not yet tested                                                                                                                                        |
+| Windows                                                                               | global-hotkey                                          | not yet tested                                                                                                                                        |
+| macOS                                                                                 | global-hotkey                                          | not yet tested                                                                                                                                        |
 
 ## Known limitations
+
+- **Overlay on Wayland without layer-shell (GNOME/Mutter):** the compositor
+  positions and focuses the window. niri without layer-shell gave the overlay
+  focus and a 954×1032 size.
 
 - **evdev backend:** the focused application also receives the shortcut
   keystroke, and the backend needs the `input` group.

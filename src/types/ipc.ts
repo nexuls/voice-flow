@@ -3,6 +3,7 @@
 export const EVENTS = {
   transition: "dictation://transition",
   shortcutStatus: "shortcut://status",
+  audioLevel: "audio://level",
 } as const;
 
 export type ErrorKind =
@@ -55,4 +56,10 @@ export interface AppInfo {
   version: string;
   os: string;
   arch: string;
+}
+
+/** Throttled microphone level for the visualizer. */
+export interface AudioLevel {
+  /** Normalised level in [0, 1]. */
+  level: number;
 }

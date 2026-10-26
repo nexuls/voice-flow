@@ -439,7 +439,7 @@ mod uinput_tests {
             KeyCode::KEY_A,
             KeyCode::KEY_SPACE,
             KeyCode::KEY_LEFTCTRL,
-            KeyCode::KEY_F20,
+            KeyCode::KEY_F19,
         ] {
             keys.insert(k);
         }
@@ -457,13 +457,13 @@ mod uinput_tests {
         let sink_seen = seen.clone();
         let sink: ShortcutSink = Arc::new(move |ev| sink_seen.lock().unwrap().push(ev.state));
         let mut backend = EvdevBackend::new();
-        backend.register("F20".parse().unwrap(), sink).unwrap();
+        backend.register("F19".parse().unwrap(), sink).unwrap();
 
-        // F20 is unbound on typical desktops, so injecting it is harmless.
-        key(&mut dev, KeyCode::KEY_F20, 1);
-        key(&mut dev, KeyCode::KEY_F20, 2); // autorepeat must be ignored
+        // F19 has no default XKB action. F20 would toggle mic mute.
+        key(&mut dev, KeyCode::KEY_F19, 1);
+        key(&mut dev, KeyCode::KEY_F19, 2); // autorepeat must be ignored
         std::thread::sleep(Duration::from_millis(100));
-        key(&mut dev, KeyCode::KEY_F20, 0);
+        key(&mut dev, KeyCode::KEY_F19, 0);
         std::thread::sleep(Duration::from_millis(400));
 
         backend.unregister();

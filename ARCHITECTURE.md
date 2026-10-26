@@ -21,16 +21,18 @@ renders state and sends typed commands.
 
 ## Modules (`src-tauri/src`)
 
-| Module                 | Responsibility                                                                                                                                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `workflow::machine`    | Pure state machine: `Idle → Recording → Processing → Inserting → Success/Error → Idle`. Session ids reject stale results. No I/O.                                                                |
-| `workflow::controller` | Async loop that applies inputs in order, runs effects through an `Executor`, owns dismiss timers and reports transitions. `DiagnosticExecutor` simulates all services.                           |
-| `shortcuts`            | `Accelerator` parsing, the `ShortcutService` trait, `PressFilter` (dedupes repeats and stray releases), `ShortcutManager` (backend fallback, restores the previous shortcut on a failed change). |
-| `shortcuts::hotkey`    | global-hotkey through the Tauri plugin: Windows, macOS and X11.                                                                                                                                  |
-| `shortcuts::portal`    | XDG GlobalShortcuts portal (Wayland).                                                                                                                                                            |
-| `shortcuts::evdev`     | `/dev/input` reader (Linux, any compositor).                                                                                                                                                     |
-| `commands` / `events`  | Typed IPC surface. Mirrored in `src/types/ipc.ts`.                                                                                                                                               |
-| `logging`              | `tracing` setup. Never logs audio or transcript text.                                                                                                                                            |
+| Module                 | Responsibility                                                                                                                                                                                                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workflow::machine`    | Pure state machine: `Idle → Recording → Processing → Inserting → Success/Error → Idle`. Session ids reject stale results. No I/O.                                                                                                                                                |
+| `workflow::controller` | Async loop that applies inputs in order, runs effects through an `Executor`, owns dismiss timers and reports transitions. `DiagnosticExecutor` simulates all services.                                                                                                           |
+| `shortcuts`            | `Accelerator` parsing, the `ShortcutService` trait, `PressFilter` (dedupes repeats and stray releases), `ShortcutManager` (backend fallback, restores the previous shortcut on a failed change).                                                                                 |
+| `shortcuts::hotkey`    | global-hotkey through the Tauri plugin: Windows, macOS and X11.                                                                                                                                                                                                                  |
+| `shortcuts::portal`    | XDG GlobalShortcuts portal (Wayland).                                                                                                                                                                                                                                            |
+| `shortcuts::evdev`     | `/dev/input` reader (Linux, any compositor).                                                                                                                                                                                                                                     |
+| `overlay`              | `OverlayController`: hidden pre-created overlay window, bottom-center placement on the monitor under the cursor (scale-aware), click-through unless an action is offered. On Wayland with layer-shell, a bottom-anchored `Overlay`-layer surface with no keyboard interactivity. |
+| `executor`             | `AppExecutor`: routes overlay effects to the `OverlayController` and the rest to the service executor.                                                                                                                                                                           |
+| `commands` / `events`  | Typed IPC surface. Mirrored in `src/types/ipc.ts`.                                                                                                                                                                                                                               |
+| `logging`              | `tracing` setup. Never logs audio or transcript text.                                                                                                                                                                                                                            |
 
 ## State machine rules
 
@@ -50,3 +52,12 @@ renders state and sends typed commands.
 - **Main thread:** Tauri event loop and window management.
 - **Tokio runtime:** the controller loop, timers and async commands.
 - **Shortcut threads:** portal (its own current-thread runtime) and evdev (a `poll(2)` loop that wakes every 200 ms to check for stop).
+
+## Overlay window
+
+- It is created once at startup, hidden and non-focusable, so showing it costs
+  one position update and a map.
+- Click-through (an empty input shape) is applied only while the window is
+  visible, because GTK needs a realized window for input shapes.
+- The frontend (`src/components/overlay`) only renders the phase it gets from
+  `dictation://transition` and the levels from `audio://level`.

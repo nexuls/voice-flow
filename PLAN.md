@@ -32,7 +32,7 @@ on-device with Cactus Whistle on the Needle engine.
 
 - [x] 1. Project foundation
 - [x] 2. Native shortcut prototype
-- [ ] 3. Floating OSD
+- [x] 3. Floating OSD
 - [ ] 4. Microphone capture
 - [ ] 5. Cactus Whistle integration
 - [ ] 6. End-to-end push-to-talk workflow

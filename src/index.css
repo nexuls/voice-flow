@@ -128,3 +128,58 @@
     @apply font-sans;
   }
 }
+
+/* Overlay window: fully transparent page so only the pill is visible. */
+html.overlay,
+html.overlay body {
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+@theme {
+  --color-pill: oklch(0.18 0.005 270 / 0.88);
+  --color-pill-border: oklch(1 0 0 / 0.1);
+  --color-pill-fg: oklch(0.97 0 0);
+  --color-pill-muted: oklch(0.78 0.005 270);
+  --color-rec: oklch(0.68 0.21 25);
+  --color-ok: oklch(0.78 0.16 155);
+  --color-warn: oklch(0.82 0.15 75);
+}
+
+@keyframes vf-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes vf-pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.vf-pulse {
+  animation: vf-pulse 1.4s ease-in-out infinite;
+}
+.vf-pill-in {
+  animation: vf-pill-in 140ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vf-pulse,
+  .vf-pill-in {
+    animation: none;
+  }
+}

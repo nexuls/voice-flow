@@ -2,7 +2,9 @@
 
 pub mod commands;
 pub mod events;
+pub mod executor;
 pub mod logging;
+pub mod overlay;
 pub mod shortcuts;
 pub mod state;
 pub mod workflow;
@@ -11,12 +13,13 @@ use std::sync::{Arc, Mutex};
 
 use tauri::{AppHandle, Emitter, Manager, RunEvent};
 
+use overlay::OverlayController;
 use shortcuts::{
     Accelerator, BackendFactory, BackendKind, BackendPreference, KeyState, ShortcutManager,
     ShortcutService, ShortcutSink,
 };
 use state::AppState;
-use workflow::{DiagnosticExecutor, Input, Transition};
+use workflow::{DiagnosticExecutor, Input, LevelSink, StateView, Transition};
 
 fn backend_factory(app: AppHandle) -> BackendFactory {
     Box::new(move |kind| -> Option<Box<dyn ShortcutService>> {
@@ -50,13 +53,33 @@ pub fn run() {
         ])
         .setup(|app| {
             let handle = app.handle().clone();
+            let overlay: Arc<dyn OverlayController> =
+                Arc::new(overlay::TauriOverlay::create(&handle)?);
+
             let emitter = handle.clone();
+            let observer_overlay = overlay.clone();
             let observer = move |t: &Transition| {
+                // Clicks are only needed for the manual-copy action.
+                let interactive = matches!(
+                    t.to,
+                    StateView::Error {
+                        has_transcript: true,
+                        ..
+                    }
+                );
+                observer_overlay.set_interactive(interactive);
                 let _ = emitter.emit(events::TRANSITION, t);
             };
+            let level_emitter = handle.clone();
+            let levels: LevelSink = Arc::new(move |level| {
+                let _ =
+                    level_emitter.emit(events::AUDIO_LEVEL, serde_json::json!({ "level": level }));
+            });
+            let executor =
+                executor::AppExecutor::new(overlay, DiagnosticExecutor::with_levels(levels));
             let (workflow, _task) = tauri::async_runtime::block_on(async {
                 let rt = tokio::runtime::Handle::current();
-                workflow::controller::spawn(&rt, DiagnosticExecutor::default(), observer)
+                workflow::controller::spawn(&rt, executor, observer)
             });
 
             let wf = workflow.clone();

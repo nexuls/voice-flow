@@ -16,6 +16,8 @@ never leaves your computer.
 - [Bun](https://bun.sh) 1.3+
 - Tauri 2 system dependencies: <https://tauri.app/start/prerequisites/>
   - Arch Linux: `webkit2gtk-4.1 gtk3 libappindicator-gtk3 librsvg alsa-lib`
+- Linux: `gtk-layer-shell` (overlay placement on Wayland). Build without it
+  using `--no-default-features`.
 
 ## Development
 

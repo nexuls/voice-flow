@@ -157,11 +157,18 @@ fn schedule_dismiss(handle: &WorkflowHandle, session: SessionId, after: Duration
     });
 }
 
+/// Receives visualizer levels in [0, 1].
+pub type LevelSink = std::sync::Arc<dyn Fn(f32) + Send + Sync>;
+
 /// Simulates every service so state transitions can be checked with only the
-/// shortcut. No audio is recorded and nothing is inserted.
+/// shortcut. No audio is recorded and nothing is inserted. If a level sink is
+/// set, a synthetic level signal drives the overlay visualizer.
 pub struct DiagnosticExecutor {
     pub processing_delay: Duration,
     pub insertion_delay: Duration,
+    pub levels: Option<LevelSink>,
+    /// Session whose synthetic levels are running, or 0 for none.
+    active: std::sync::Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl Default for DiagnosticExecutor {
@@ -169,7 +176,43 @@ impl Default for DiagnosticExecutor {
         Self {
             processing_delay: Duration::from_millis(600),
             insertion_delay: Duration::from_millis(150),
+            levels: None,
+            active: Default::default(),
         }
+    }
+}
+
+impl DiagnosticExecutor {
+    pub fn with_levels(levels: LevelSink) -> Self {
+        Self {
+            levels: Some(levels),
+            ..Self::default()
+        }
+    }
+
+    fn start_levels(&self, session: SessionId) {
+        use std::sync::atomic::Ordering;
+        let Some(sink) = self.levels.clone() else {
+            return;
+        };
+        self.active.store(session, Ordering::SeqCst);
+        let active = self.active.clone();
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(Duration::from_millis(33));
+            let mut t = 0f32;
+            while active.load(Ordering::SeqCst) == session {
+                tick.tick().await;
+                t += 0.033;
+                // Speech-like envelope: syllable rhythm on a slow phrase swell.
+                let level =
+                    (0.5 + 0.5 * (t * 9.0).sin()).powi(2) * (0.4 + 0.6 * (t * 1.3).sin().abs());
+                sink(level);
+            }
+        });
+    }
+
+    fn stop_levels(&self) {
+        self.active.store(0, std::sync::atomic::Ordering::SeqCst);
     }
 }
 
@@ -177,7 +220,10 @@ impl Executor for DiagnosticExecutor {
     fn execute(&mut self, effect: Effect, handle: &WorkflowHandle) {
         let handle = handle.clone();
         match effect {
+            Effect::BeginCapture { session } => self.start_levels(session),
+            Effect::AbortCapture { .. } => self.stop_levels(),
             Effect::FinishCapture { session } => {
+                self.stop_levels();
                 let delay = self.processing_delay;
                 tokio::spawn(async move {
                     tokio::time::sleep(delay).await;
@@ -301,6 +347,26 @@ mod tests {
         h.send(Input::ShortcutPressed);
         tokio::time::sleep(Duration::from_secs(2)).await;
         assert_eq!(phase(&settle(&h).await), "recording");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn diagnostic_levels_run_only_while_recording() {
+        let count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let c = count.clone();
+        let exec = DiagnosticExecutor::with_levels(Arc::new(move |l: f32| {
+            assert!((0.0..=1.0).contains(&l));
+            c.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }));
+        let (h, _task) = spawn(&rt(), exec, |_: &Transition| {});
+        h.send(Input::ShortcutPressed);
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        h.send(Input::ShortcutReleased);
+        settle(&h).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let during = count.load(std::sync::atomic::Ordering::SeqCst);
+        assert!(during >= 10, "expected ~15 levels, got {during}");
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        assert_eq!(count.load(std::sync::atomic::Ordering::SeqCst), during);
     }
 
     #[tokio::test]

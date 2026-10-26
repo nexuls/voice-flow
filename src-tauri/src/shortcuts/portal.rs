@@ -69,7 +69,9 @@ async fn run(
             // the GlobalShortcuts call report the real problem.
             tracing::debug!(error = %e, "host app registration failed");
         }
-        let portal = GlobalShortcuts::with_connection(conn).await.map_err(map_err)?;
+        let portal = GlobalShortcuts::with_connection(conn)
+            .await
+            .map_err(map_err)?;
         let session = portal
             .create_session(CreateSessionOptions::default())
             .await

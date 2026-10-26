@@ -1,9 +1,13 @@
 //! Development aid (Linux): holds a key on a virtual uinput keyboard.
 //!
-//!     cargo run --example hold_key -- F20 1500
+//!     cargo run --example hold_key -- F19 1500
 //!
 //! Lets the push-to-talk flow be tested without touching the keyboard. Needs
 //! write access to /dev/uinput.
+//!
+//! Only F19 is offered: in the default XKB "inet" map, F13-F18 and F20-F24
+//! are media/launcher keys (F20 is XF86AudioMicMute), and the compositor
+//! acts on them because it also sees the virtual keyboard.
 
 #[cfg(target_os = "linux")]
 fn main() {
@@ -13,16 +17,19 @@ fn main() {
     use evdev::{AttributeSet, EventType, InputEvent, KeyCode};
 
     let mut args = std::env::args().skip(1);
-    let name = args.next().unwrap_or_else(|| "F20".into());
+    let name = args.next().unwrap_or_else(|| "F19".into());
     let hold_ms: u64 = args.next().and_then(|s| s.parse().ok()).unwrap_or(1000);
     let code = match name.as_str() {
-        "F13" => KeyCode::KEY_F13,
-        "F20" => KeyCode::KEY_F20,
-        "F24" => KeyCode::KEY_F24,
-        other => panic!("unsupported key {other}; use F13, F20 or F24"),
+        "F19" => KeyCode::KEY_F19,
+        other => panic!("unsupported key {other}; use F19"),
     };
     let mut keys = AttributeSet::<KeyCode>::new();
-    for k in [KeyCode::KEY_A, KeyCode::KEY_SPACE, KeyCode::KEY_LEFTCTRL, code] {
+    for k in [
+        KeyCode::KEY_A,
+        KeyCode::KEY_SPACE,
+        KeyCode::KEY_LEFTCTRL,
+        code,
+    ] {
         keys.insert(k);
     }
     let mut dev = VirtualDevice::builder()

@@ -3,5 +3,7 @@
 pub mod controller;
 pub mod machine;
 
-pub use controller::{DiagnosticExecutor, Executor, StateObserver, Transition, WorkflowHandle};
+pub use controller::{
+    DiagnosticExecutor, Executor, LevelSink, StateObserver, Transition, WorkflowHandle,
+};
 pub use machine::{DictationError, Effect, ErrorKind, Input, InsertOutcome, SessionId, StateView};

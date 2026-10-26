@@ -126,3 +126,12 @@ after   → wait 600 ms → clipboard still ours? → restore saved text
 | X11                           | XTest                                                    | `_NET_ACTIVE_WINDOW`  | not tested |
 | Windows                       | SendInput                                                | `GetForegroundWindow` | not tested |
 | macOS                         | CGEvent (Accessibility permission)                       | none                  | not tested |
+
+## Application shell
+
+- Single instance: a second launch shows Settings in the running instance.
+- The Settings window is hidden at startup. It opens on first run or while
+  the model is missing, unless the app was started with `--background`
+  (start on login).
+- A tray menu (Settings…, Quit) is shown when an AppIndicator library is
+  available. The tray crate would panic without one, so this is probed first.

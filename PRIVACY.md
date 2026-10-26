@@ -16,6 +16,13 @@ VoiceFlow is local-first. Speech recognition runs entirely on your computer.
 - **Logs:** contain timings, state names and error kinds only, never audio or
   transcript text.
 
+## Settings
+
+Preferences are stored locally as JSON (`settings.json` in the OS config
+directory). They contain no audio, transcripts or window information. Start
+on login uses the OS mechanism: `~/.config/autostart` on Linux, a LaunchAgent on
+macOS, the registry Run key on Windows.
+
 ## Clipboard
 
 To paste, VoiceFlow briefly replaces the clipboard with the transcript. If

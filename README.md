@@ -10,6 +10,22 @@ never leaves your computer.
 
 > Status: early development. See [PLAN.md](PLAN.md) for progress.
 
+## Using VoiceFlow
+
+- VoiceFlow runs in the background. Settings opens on first run, from the tray
+  icon, or when you launch the app again.
+- Closing the Settings window does not quit the app. Use **Quit VoiceFlow** in the tray menu.
+- Install the speech model from Settings (16.9 MB, one-time download).
+- Hold the shortcut (default `Ctrl+Space`), speak, release. The text is pasted
+  into the focused application. If pasting is not possible, it is copied to the
+  clipboard and the overlay says so.
+
+Settings: shortcut, shortcut method (Linux), microphone (with a test),
+language (7 languages or automatic), maximum recording length, automatic
+paste, clipboard restore, overlay visibility and position, sounds, start on
+login and privacy-safe diagnostics. They are stored in the OS config directory
+(`~/.config/dev.voiceflow.app/settings.json` on Linux).
+
 ## Prerequisites
 
 - [Rust](https://rustup.rs) 1.90+
@@ -18,6 +34,8 @@ never leaves your computer.
   - Arch Linux: `webkit2gtk-4.1 gtk3 libappindicator-gtk3 librsvg alsa-lib`
 - Linux: `gtk-layer-shell` (overlay placement on Wayland). Build without it
   using `--no-default-features`.
+- Linux, optional: `libayatana-appindicator` for the tray icon. Without it,
+  VoiceFlow runs without a tray, and launching it again opens Settings.
 
 ## Development
 

@@ -5,6 +5,10 @@ export const EVENTS = {
   shortcutStatus: "shortcut://status",
   audioLevel: "audio://level",
   modelProgress: "model://progress",
+  modelStatus: "model://status",
+  settingsChanged: "settings://changed",
+  micTestLevel: "mic-test://level",
+  timings: "diagnostics://timings",
 } as const;
 
 export type ErrorKind =
@@ -72,6 +76,8 @@ export type ModelStatus =
   | { state: "incomplete"; path: string; bytes: number };
 
 export interface ModelInfo {
+  /** True once the model is loaded and ready. */
+  loaded: boolean;
   id: string;
   name: string;
   size: number;
@@ -84,4 +90,56 @@ export interface ModelInfo {
 export interface ModelProgress {
   downloaded: number;
   total: number;
+}
+
+export type LanguageCode = "en" | "de" | "fr" | "es" | "it" | "nl" | "pl";
+export type OverlayPosition = "bottom" | "top";
+
+export interface Settings {
+  version: number;
+  shortcut: string;
+  shortcutBackend: BackendPreference;
+  microphone: string | null;
+  language: LanguageCode | null;
+  maxRecordingSecs: number;
+  startOnLogin: boolean;
+  overlayPosition: OverlayPosition;
+  showOverlay: boolean;
+  soundFeedback: boolean;
+  autoPaste: boolean;
+  restoreClipboard: boolean;
+  diagnostics: boolean;
+}
+
+export interface UpdateResult {
+  settings: Settings;
+  warnings: string[];
+}
+
+export interface InputDevice {
+  id: string;
+  name: string;
+  isDefault: boolean;
+}
+
+export interface MicTestResult {
+  deviceName: string;
+  sampleRate: number;
+  channels: number;
+  durationMs: number;
+  peak: number;
+  rms: number;
+  signalDetected: boolean;
+}
+
+export interface SessionTimings {
+  session: number;
+  captureOpenMs: number | null;
+  overlayVisibleMs: number | null;
+  recordedMs: number | null;
+  finalizeMs: number | null;
+  inferenceMs: number | null;
+  engineTtftMs: number | null;
+  insertMs: number | null;
+  releaseToInsertMs: number | null;
 }

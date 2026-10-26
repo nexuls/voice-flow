@@ -1,12 +1,12 @@
 //! Typed Tauri commands exposed to the frontend.
 
 pub mod model;
+pub mod settings;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::State;
 
-use crate::events;
-use crate::shortcuts::{Accelerator, BackendPreference, ShortcutStatus};
+use crate::shortcuts::ShortcutStatus;
 use crate::state::AppState;
 use crate::workflow::{Input, StateView};
 
@@ -50,28 +50,6 @@ pub fn cancel_dictation(state: State<'_, AppState>) {
 #[tauri::command]
 pub fn shortcut_status(state: State<'_, AppState>) -> ShortcutStatus {
     state.shortcuts.lock().expect("shortcut lock").status()
-}
-
-/// Registers a new shortcut. Runs on a blocking thread because a portal
-/// backend may wait for the user to confirm.
-#[tauri::command]
-pub async fn set_shortcut(
-    app: AppHandle,
-    accelerator: String,
-    backend: Option<BackendPreference>,
-) -> Result<ShortcutStatus, String> {
-    let accel: Accelerator = accelerator.parse().map_err(|e| format!("{e}"))?;
-    let handle = app.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let state = handle.state::<AppState>();
-        let mut mgr = state.shortcuts.lock().expect("shortcut lock");
-        let result = mgr.register(accel, backend.unwrap_or_default());
-        let status = mgr.status();
-        let _ = handle.emit(events::SHORTCUT_STATUS, &status);
-        result.map(|_| status).map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]

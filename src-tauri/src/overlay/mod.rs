@@ -18,6 +18,8 @@ mod layer_shell;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::config::OverlayPosition;
+
 use tauri::{
     AppHandle, Manager, PhysicalPosition, PhysicalSize, Runtime, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder,
@@ -37,6 +39,8 @@ pub trait OverlayController: Send + Sync {
     fn hide(&self);
     /// Lets the overlay receive clicks, for example for a "Copy text" button.
     fn set_interactive(&self, interactive: bool);
+    /// Applies user preferences. A disabled overlay is never shown.
+    fn configure(&self, position: OverlayPosition, enabled: bool);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,11 +55,24 @@ pub struct Rect {
 /// `margin` pixels above its bottom edge. Clamped so the window stays inside
 /// the area even when the area is smaller than the window.
 pub fn bottom_center(area: Rect, size: PhysicalSize<u32>, margin: u32) -> PhysicalPosition<i32> {
+    place(area, size, margin, OverlayPosition::Bottom)
+}
+
+/// Horizontally centered position at the top or bottom edge of `area`.
+pub fn place(
+    area: Rect,
+    size: PhysicalSize<u32>,
+    margin: u32,
+    edge: OverlayPosition,
+) -> PhysicalPosition<i32> {
     let free_x = area.width.saturating_sub(size.width) as i32;
     let x = area.x + free_x / 2;
     let max_y = area.y + area.height.saturating_sub(size.height) as i32;
-    let y = (area.y + area.height as i32 - size.height as i32 - margin as i32).clamp(area.y, max_y);
-    PhysicalPosition::new(x, y)
+    let y = match edge {
+        OverlayPosition::Bottom => area.y + area.height as i32 - size.height as i32 - margin as i32,
+        OverlayPosition::Top => area.y + margin as i32,
+    };
+    PhysicalPosition::new(x, y.clamp(area.y, max_y))
 }
 
 pub fn physical_size(scale: f64) -> PhysicalSize<u32> {
@@ -70,6 +87,8 @@ pub struct TauriOverlay<R: Runtime> {
     layer_shell: bool,
     visible: AtomicBool,
     interactive: AtomicBool,
+    enabled: AtomicBool,
+    top: AtomicBool,
 }
 
 impl<R: Runtime> TauriOverlay<R> {
@@ -106,6 +125,8 @@ impl<R: Runtime> TauriOverlay<R> {
             layer_shell,
             visible: AtomicBool::new(false),
             interactive: AtomicBool::new(false),
+            enabled: AtomicBool::new(true),
+            top: AtomicBool::new(false),
         })
     }
 
@@ -139,11 +160,17 @@ impl<R: Runtime> TauriOverlay<R> {
             width: wa.size.width,
             height: wa.size.height,
         };
+        let edge = if self.top.load(Ordering::SeqCst) {
+            OverlayPosition::Top
+        } else {
+            OverlayPosition::Bottom
+        };
         window.set_size(size)?;
-        window.set_position(bottom_center(
+        window.set_position(place(
             area,
             size,
             (BOTTOM_MARGIN * scale).round() as u32,
+            edge,
         ))?;
         Ok(())
     }
@@ -151,6 +178,9 @@ impl<R: Runtime> TauriOverlay<R> {
 
 impl<R: Runtime> OverlayController for TauriOverlay<R> {
     fn show(&self) {
+        if !self.enabled.load(Ordering::SeqCst) {
+            return;
+        }
         let Some(window) = self.window() else { return };
         if !self.layer_shell
             && let Err(e) = self.position(&window)
@@ -184,6 +214,25 @@ impl<R: Runtime> OverlayController for TauriOverlay<R> {
         {
             self.apply_input_shape(&window);
         }
+    }
+
+    fn configure(&self, position: OverlayPosition, enabled: bool) {
+        let top = position == OverlayPosition::Top;
+        self.enabled.store(enabled, Ordering::SeqCst);
+        let moved = self.top.swap(top, Ordering::SeqCst) != top;
+        if !enabled {
+            self.hide();
+        }
+        #[cfg(all(target_os = "linux", feature = "layer-shell"))]
+        if moved
+            && self.layer_shell
+            && let Some(window) = self.window()
+        {
+            let _ = self
+                .app
+                .run_on_main_thread(move || layer_shell::set_edge(&window, top));
+        }
+        let _ = moved;
     }
 }
 
@@ -230,6 +279,12 @@ mod tests {
         };
         let p = bottom_center(tiny, PhysicalSize::new(360, 60), 48);
         assert_eq!(p, PhysicalPosition::new(10, 10));
+    }
+
+    #[test]
+    fn top_placement_uses_margin_from_top() {
+        let p = place(AREA, PhysicalSize::new(360, 76), 40, OverlayPosition::Top);
+        assert_eq!(p, PhysicalPosition::new(780, 40));
     }
 
     #[test]

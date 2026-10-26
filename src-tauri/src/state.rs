@@ -3,8 +3,10 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
 
+use crate::config::{Settings, SettingsStore};
 use crate::insertion::InsertionWorker;
 use crate::live::{LiveConfig, Services};
+use crate::overlay::OverlayController;
 use crate::shortcuts::ShortcutManager;
 use crate::transcription::TranscriptionService;
 use crate::transcription::model::ModelStore;
@@ -17,6 +19,9 @@ pub struct AppState {
     pub live_config: Arc<RwLock<LiveConfig>>,
     /// `None` in diagnostic mode.
     pub services: Option<Arc<Services>>,
+    pub overlay: Arc<dyn OverlayController>,
+    pub settings: RwLock<Settings>,
+    pub settings_store: SettingsStore,
 }
 
 /// Speech model files, engine and the install in progress, if any.

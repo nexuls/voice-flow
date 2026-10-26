@@ -150,6 +150,23 @@ Results on niri 26.04:
 | Focus moved to another window during transcription | nothing pasted, transcript left on the clipboard            |
 | Paste into a terminal                              | not tested live (unit-tested chord selection)               |
 
+### Settings
+
+Automated: `config` unit tests (defaults, per-field fallback, clamping,
+migration, atomic save, corrupt backup) and component tests (shortcut
+recorder, model states, timings table).
+
+Verified by hand on niri:
+
+| Case                                                                      | Result                                      |
+| ------------------------------------------------------------------------- | ------------------------------------------- |
+| First run writes defaults and opens Settings                              | ok                                          |
+| `shortcut: "Ctrl+Alt+F19"` in the file is registered at startup           | ok                                          |
+| `maxRecordingSecs: 99999` is clamped and logged, unknown keys are ignored | ok                                          |
+| Corrupt JSON is renamed to `settings.json.corrupt`, defaults are used     | ok                                          |
+| No AppIndicator library: no tray, no crash (warning logged)               | ok                                          |
+| Start on login toggle                                                     | not tested live (official autostart plugin) |
+
 ## Test environments
 
 | Environment                                                                           | Shortcut backend                                       | Result                                                                                                                                                |

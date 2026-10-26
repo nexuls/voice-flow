@@ -37,3 +37,16 @@ pub fn try_init<R: Runtime>(window: &WebviewWindow<R>) -> bool {
     gtk_window.set_size_request(WIDTH as i32, HEIGHT as i32);
     true
 }
+
+/// Moves the layer surface to the top or bottom edge. Must run on the GTK
+/// main thread.
+pub fn set_edge<R: Runtime>(window: &WebviewWindow<R>, top: bool) {
+    let Ok(gtk_window) = window.gtk_window() else {
+        return;
+    };
+    gtk_window.set_anchor(Edge::Bottom, !top);
+    gtk_window.set_anchor(Edge::Top, top);
+    let margin = BOTTOM_MARGIN as i32;
+    gtk_window.set_layer_shell_margin(Edge::Bottom, if top { 0 } else { margin });
+    gtk_window.set_layer_shell_margin(Edge::Top, if top { margin } else { 0 });
+}

@@ -57,6 +57,8 @@ pub trait TextInsertionService: Send + 'static {
     fn after_insert(&mut self) {}
     /// Prepares slow resources (input devices, connections) ahead of the first insert.
     fn warm_up(&mut self) {}
+    /// Updates user preferences.
+    fn set_options(&mut self, _options: PasteOptions) {}
 }
 
 /// Abstraction over the system clipboard, so the restore logic can be tested.
@@ -248,6 +250,14 @@ impl TextInsertionService for PasteInsertion {
         self.clipboard.set_text(text)
     }
 
+    fn set_options(&mut self, options: PasteOptions) {
+        let enable_paste = options.auto_paste && !self.options.auto_paste;
+        self.options = options;
+        if enable_paste {
+            self.warm_up();
+        }
+    }
+
     fn warm_up(&mut self) {
         if !self.options.auto_paste {
             return;
@@ -285,6 +295,7 @@ enum Job {
         text: String,
         reply: oneshot::Sender<Result<(), InsertError>>,
     },
+    SetOptions(PasteOptions),
 }
 
 /// Runs a [`TextInsertionService`] on its own thread. Clipboard and input
@@ -320,6 +331,7 @@ impl InsertionWorker {
                             let _ = reply.send(service.copy(&text));
                             text.zeroize();
                         }
+                        Job::SetOptions(options) => service.set_options(options),
                     }
                 }
             })
@@ -360,6 +372,14 @@ impl InsertionWorker {
         tx.send(Job::Copy { text, reply })
             .map_err(|_| InsertError::Stopped)?;
         rx.await.unwrap_or(Err(InsertError::Stopped))
+    }
+}
+
+impl InsertionWorker {
+    pub fn set_options(&self, options: PasteOptions) {
+        if let Some(tx) = &self.tx {
+            let _ = tx.send(Job::SetOptions(options));
+        }
     }
 }
 

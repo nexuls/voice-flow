@@ -19,6 +19,12 @@ pub trait Executor: Send + 'static {
     fn execute(&mut self, effect: Effect, handle: &WorkflowHandle);
 }
 
+impl Executor for Box<dyn Executor> {
+    fn execute(&mut self, effect: Effect, handle: &WorkflowHandle) {
+        (**self).execute(effect, handle)
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Transition {
@@ -78,6 +84,7 @@ impl Input {
         match self {
             Input::ShortcutPressed => "shortcutPressed",
             Input::ShortcutReleased => "shortcutReleased",
+            Input::CaptureLimitReached { .. } => "captureLimitReached",
             Input::CaptureFailed { .. } => "captureFailed",
             Input::CaptureEmpty { .. } => "captureEmpty",
             Input::TranscriptReady { .. } => "transcriptReady",

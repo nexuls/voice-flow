@@ -4,6 +4,8 @@ pub mod audio;
 pub mod commands;
 pub mod events;
 pub mod executor;
+pub mod insertion;
+pub mod live;
 pub mod logging;
 pub mod overlay;
 pub mod shortcuts;
@@ -11,7 +13,8 @@ pub mod state;
 pub mod transcription;
 pub mod workflow;
 
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, Mutex, RwLock};
 
 use tauri::{AppHandle, Emitter, Manager, RunEvent};
 
@@ -21,7 +24,7 @@ use shortcuts::{
     ShortcutService, ShortcutSink,
 };
 use state::{AppState, ModelState};
-use workflow::{DiagnosticExecutor, Input, LevelSink, StateView, Transition};
+use workflow::{DiagnosticExecutor, Executor, Input, LevelSink, StateView, Transition};
 
 fn backend_factory(app: AppHandle) -> BackendFactory {
     Box::new(move |kind| -> Option<Box<dyn ShortcutService>> {
@@ -56,6 +59,8 @@ pub fn run() {
             commands::model::install_model,
             commands::model::cancel_model_install,
             commands::model::remove_model,
+            commands::copy_transcript,
+            commands::overlay_rendered,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -81,8 +86,40 @@ pub fn run() {
                 let _ =
                     level_emitter.emit(events::AUDIO_LEVEL, serde_json::json!({ "level": level }));
             });
-            let executor =
-                executor::AppExecutor::new(overlay, DiagnosticExecutor::with_levels(levels));
+
+            let transcription = Arc::new(transcription::TranscriptionService::spawn(
+                transcription::default_engine(),
+            ));
+            let engine_ready = Arc::new(AtomicBool::new(false));
+            let insertion = Arc::new(insertion::InsertionWorker::spawn(Box::new(
+                insertion::ClipboardInsertion::new(),
+            )));
+            let live_config = Arc::new(RwLock::new(live::LiveConfig::default()));
+
+            let diagnostic = std::env::var_os("VOICEFLOW_DIAGNOSTIC").is_some();
+            let (services, inner): (Option<Arc<live::Services>>, Box<dyn Executor>) = if diagnostic
+            {
+                tracing::warn!("diagnostic mode: no audio is recorded");
+                (None, Box::new(DiagnosticExecutor::with_levels(levels)))
+            } else {
+                let timing_emitter = handle.clone();
+                let services = live::Services::new(
+                    live::AudioControl::spawn(Box::new(audio::cpal_capture::CpalCapture::new())),
+                    transcription.clone(),
+                    insertion.clone(),
+                    engine_ready.clone(),
+                    live_config.clone(),
+                    levels,
+                    Arc::new(move |t: &live::SessionTimings| {
+                        let _ = timing_emitter.emit(events::TIMINGS, t);
+                    }),
+                );
+                (
+                    Some(services.clone()),
+                    Box::new(live::LiveExecutor::new(services)),
+                )
+            };
+            let executor = executor::AppExecutor::new(overlay, inner);
             let (workflow, _task) = tauri::async_runtime::block_on(async {
                 let rt = tokio::runtime::Handle::current();
                 workflow::controller::spawn(&rt, executor, observer)
@@ -103,11 +140,22 @@ pub fn run() {
             app.manage(AppState {
                 workflow,
                 shortcuts: Mutex::new(manager),
+                insertion,
+                live_config,
+                services,
             });
             let models_dir = app.path().app_data_dir()?.join("models");
             app.manage(ModelState {
                 store: transcription::model::ModelStore::new(models_dir),
+                transcription,
+                engine_ready,
                 install: Mutex::new(None),
+            });
+
+            // Load the model in the background so the app starts at once.
+            let model_handle = handle.clone();
+            tauri::async_runtime::spawn(async move {
+                commands::model::load_installed_model(&model_handle).await;
             });
 
             // Registration may wait for a portal dialog, so keep it off the

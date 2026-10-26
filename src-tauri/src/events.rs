@@ -4,3 +4,5 @@ pub const TRANSITION: &str = "dictation://transition";
 pub const SHORTCUT_STATUS: &str = "shortcut://status";
 pub const AUDIO_LEVEL: &str = "audio://level";
 pub const MODEL_PROGRESS: &str = "model://progress";
+pub const MODEL_STATUS: &str = "model://status";
+pub const TIMINGS: &str = "diagnostics://timings";

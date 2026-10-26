@@ -96,6 +96,38 @@ touchpad.
 5. Multi-monitor (X11/Windows/macOS): move the cursor to another monitor and hold the
    shortcut. The pill should appear on that monitor.
 
+### End-to-end dictation without speaking (Linux, PipeWire)
+
+This plays a fixture into a temporary null sink and records from its monitor.
+Only VoiceFlow is pointed at it (`PULSE_SOURCE`). System default devices are
+not changed. **The transcript replaces the clipboard contents.**
+
+```sh
+MOD=$(pactl load-module module-null-sink sink_name=vf_sink channel_map=mono)
+PULSE_SOURCE=vf_sink.monitor VOICEFLOW_SHORTCUT=F19 VOICEFLOW_LOG=voiceflow_lib=debug \
+  ./src-tauri/target/release/voiceflow &
+sleep 3
+./src-tauri/target/debug/examples/hold_key F19 8500 &
+sleep 3; pw-play --target vf_sink src-tauri/tests/fixtures/quick_brown_fox_en.wav
+sleep 6; wl-paste
+pactl unload-module "$MOD"
+```
+
+Measured, release build, 8.4 s recording:
+
+| Latency                                        | Value                       |
+| ---------------------------------------------- | --------------------------- |
+| Shortcut to microphone capture                 | 69 ms                       |
+| Shortcut to overlay painted (overlay-reported) | 108 ms                      |
+| Release to finalised 16 kHz audio              | 14 ms (resampling 4.9 ms)   |
+| Inference                                      | 892 ms (engine TTFT 784 ms) |
+| Transcript to insertion attempt                | 2 ms                        |
+| **Release to text inserted**                   | **908 ms**                  |
+
+The transcript matched except for 1–3 words between runs. Debug builds
+resample about 70 times slower (≈ 315 ms for 8 s), so measure latency only
+on release builds.
+
 ## Test environments
 
 | Environment                                                                           | Shortcut backend                                       | Result                                                                                                                                                |
@@ -107,6 +139,13 @@ touchpad.
 | macOS                                                                                 | global-hotkey                                          | not yet tested                                                                                                                                        |
 
 ## Known limitations
+
+- **Noise without speech** can produce invented text. One run that
+  captured only room noise from the real microphone returned a short French
+  sentence. Whistle documents this for music and recommends a voice activity
+  detector.
+- **Leading or trailing silence** adds inference time. Recordings longer than
+  about 5 s take noticeably longer (see the benchmark).
 
 - **Overlay on Wayland without layer-shell (GNOME/Mutter):** the compositor
   positions and focuses the window. niri without layer-shell gave the overlay

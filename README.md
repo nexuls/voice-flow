@@ -41,6 +41,10 @@ bun run dev           # frontend only (http://localhost:1420)
 | `bun run build`     | Production frontend build        |
 | `bun run app:build` | Production desktop bundle        |
 
+Environment variables for development: `VOICEFLOW_LOG` (tracing filter, e.g.
+`voiceflow_lib=debug`), `VOICEFLOW_DIAGNOSTIC=1` (simulated services, no
+microphone), `VOICEFLOW_SHORTCUT` (e.g. `F19`).
+
 ## Speech model
 
 The app links the official prebuilt [Needle](https://github.com/cactus-compute/needle)

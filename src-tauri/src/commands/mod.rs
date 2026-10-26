@@ -85,3 +85,29 @@ mod tests {
         assert!(!info.os.is_empty());
     }
 }
+
+/// Copies the transcript kept after a failed insertion to the clipboard.
+#[tauri::command]
+pub async fn copy_transcript(state: State<'_, AppState>) -> Result<(), String> {
+    let text = state
+        .workflow
+        .retained_transcript()
+        .await
+        .ok_or_else(|| "no transcript to copy".to_owned())?;
+    state
+        .insertion
+        .copy(text)
+        .await
+        .map_err(|e| e.to_string())?;
+    // The user has their text, so dismiss the error.
+    state.workflow.send(Input::Cancel);
+    Ok(())
+}
+
+/// Reported by the overlay after it has painted the recording state.
+#[tauri::command]
+pub fn overlay_rendered(state: State<'_, AppState>, session: u64) {
+    if let Some(s) = &state.services {
+        s.overlay_rendered(session);
+    }
+}

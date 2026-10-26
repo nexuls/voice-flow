@@ -23,6 +23,8 @@ export const api = {
   installModel: () => invoke<ModelInfo>("install_model"),
   cancelModelInstall: () => invoke<void>("cancel_model_install"),
   removeModel: () => invoke<ModelInfo>("remove_model"),
+  copyTranscript: () => invoke<void>("copy_transcript"),
+  overlayRendered: (session: number) => invoke<void>("overlay_rendered", { session }),
 };
 
 export const on = {

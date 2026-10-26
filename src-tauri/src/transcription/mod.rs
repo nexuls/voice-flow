@@ -334,6 +334,34 @@ impl Drop for TranscriptionService {
     }
 }
 
+/// Engine for builds without speech recognition (`--no-default-features`).
+pub struct UnavailableEngine;
+
+impl TranscriptionEngine for UnavailableEngine {
+    fn name(&self) -> &'static str {
+        "unavailable"
+    }
+    fn is_loaded(&self) -> bool {
+        false
+    }
+    fn load(&mut self, _: &Path) -> Result<(), EngineError> {
+        Err(EngineError::Unavailable)
+    }
+    fn transcribe(&mut self, _: &[f32], _: &TranscribeOptions) -> Result<Transcript, EngineError> {
+        Err(EngineError::Unavailable)
+    }
+}
+
+/// Creates the engine compiled into this build.
+pub fn default_engine() -> Box<dyn TranscriptionEngine> {
+    #[cfg(feature = "needle")]
+    match needle::NeedleEngine::new() {
+        Ok(e) => return Box::new(e),
+        Err(e) => tracing::error!(error = %e, "speech engine unavailable"),
+    }
+    Box::new(UnavailableEngine)
+}
+
 /// Deterministic engine for tests and diagnostics.
 pub struct MockEngine {
     pub loaded: bool,

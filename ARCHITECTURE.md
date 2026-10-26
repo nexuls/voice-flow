@@ -86,3 +86,21 @@ device callback (real-time)          capture thread (every 10 ms)             fi
   loads the model once and keeps the bytes for the process lifetime.
 - The engine call cannot be interrupted. Cancelling discards the result, and
   the workflow's session ids drop late results.
+
+## End-to-end flow
+
+```
+press ─▶ ShowOverlay + BeginCapture
+           ├─ engine not ready → CaptureFailed(modelUnavailable), mic never opened
+           ├─ AudioControl.start (device open ≈ 70 ms)
+           └─ insertion.capture_target()          (focus at press time)
+release ─▶ FinishCapture
+           └─ AudioControl.finish → Recording (16 kHz)
+                 < 300 ms         → CaptureEmpty(tooShort)
+                 peak < 0.001     → CaptureEmpty(noSpeech: mic muted?)
+                 else TranscriptionService.transcribe → TranscriptReady / TranscriptionFailed
+TranscriptReady ─▶ Insert → InsertionDone / InsertionFailed (transcript kept for copy)
+```
+
+Each dictation emits `diagnostics://timings` with latencies only.
+`VOICEFLOW_DIAGNOSTIC=1` swaps the live executor for the simulated one.

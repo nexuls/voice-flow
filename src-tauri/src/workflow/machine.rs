@@ -160,6 +160,11 @@ impl State {
 pub enum Input {
     ShortcutPressed,
     ShortcutReleased,
+    /// The maximum recording duration was reached. Ends the recording like a
+    /// release.
+    CaptureLimitReached {
+        session: SessionId,
+    },
     CaptureFailed {
         session: SessionId,
         error: DictationError,
@@ -274,6 +279,12 @@ impl Machine {
             (State::Recording { session }, Input::ShortcutReleased) => {
                 fx.push(Effect::FinishCapture { session: *session });
                 Some(State::Processing { session: *session })
+            }
+            (State::Recording { session }, Input::CaptureLimitReached { session: s })
+                if *session == s =>
+            {
+                fx.push(Effect::FinishCapture { session: s });
+                Some(State::Processing { session: s })
             }
             (State::Recording { session }, Input::CaptureFailed { session: s, error })
                 if *session == s =>
@@ -453,6 +464,22 @@ mod tests {
         assert_eq!(m.state(), &State::Recording { session: 1 });
         m.handle(Input::ShortcutReleased);
         assert!(m.handle(Input::ShortcutReleased).is_empty());
+        assert_eq!(m.state(), &State::Processing { session: 1 });
+    }
+
+    #[test]
+    fn limit_reached_finishes_capture_and_late_release_is_ignored() {
+        let mut m = Machine::new();
+        m.handle(Input::ShortcutPressed);
+        assert_eq!(
+            m.handle(Input::CaptureLimitReached { session: 1 }),
+            vec![Effect::FinishCapture { session: 1 }]
+        );
+        assert!(m.handle(Input::ShortcutReleased).is_empty());
+        assert!(
+            m.handle(Input::CaptureLimitReached { session: 1 })
+                .is_empty()
+        );
         assert_eq!(m.state(), &State::Processing { session: 1 });
     }
 

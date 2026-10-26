@@ -35,6 +35,7 @@ rubato = "5"
 zeroize = "1"
 sha2 = "0.10"
 ureq = { version = "3", default-features = false, features = ["rustls"] }
+arboard = { version = "3.7.0", features = ["wayland-data-control"], default-features = false }
 
 
 [features]

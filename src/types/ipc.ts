@@ -4,6 +4,7 @@ export const EVENTS = {
   transition: "dictation://transition",
   shortcutStatus: "shortcut://status",
   audioLevel: "audio://level",
+  modelProgress: "model://progress",
 } as const;
 
 export type ErrorKind =
@@ -62,4 +63,25 @@ export interface AppInfo {
 export interface AudioLevel {
   /** Normalised level in [0, 1]. */
   level: number;
+}
+
+export type ModelStatus =
+  | { state: "notInstalled" }
+  | { state: "installed"; path: string; size: number }
+  | { state: "invalid"; path: string; reason: string }
+  | { state: "incomplete"; path: string; bytes: number };
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  size: number;
+  license: string;
+  source: string;
+  status: ModelStatus;
+  installing: boolean;
+}
+
+export interface ModelProgress {
+  downloaded: number;
+  total: number;
 }

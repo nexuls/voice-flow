@@ -8,6 +8,7 @@ pub mod logging;
 pub mod overlay;
 pub mod shortcuts;
 pub mod state;
+pub mod transcription;
 pub mod workflow;
 
 use std::sync::{Arc, Mutex};
@@ -19,7 +20,7 @@ use shortcuts::{
     Accelerator, BackendFactory, BackendKind, BackendPreference, KeyState, ShortcutManager,
     ShortcutService, ShortcutSink,
 };
-use state::AppState;
+use state::{AppState, ModelState};
 use workflow::{DiagnosticExecutor, Input, LevelSink, StateView, Transition};
 
 fn backend_factory(app: AppHandle) -> BackendFactory {
@@ -51,6 +52,10 @@ pub fn run() {
             commands::cancel_dictation,
             commands::shortcut_status,
             commands::set_shortcut,
+            commands::model::model_info,
+            commands::model::install_model,
+            commands::model::cancel_model_install,
+            commands::model::remove_model,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -98,6 +103,11 @@ pub fn run() {
             app.manage(AppState {
                 workflow,
                 shortcuts: Mutex::new(manager),
+            });
+            let models_dir = app.path().app_data_dir()?.join("models");
+            app.manage(ModelState {
+                store: transcription::model::ModelStore::new(models_dir),
+                install: Mutex::new(None),
             });
 
             // Registration may wait for a portal dialog, so keep it off the

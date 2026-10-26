@@ -20,7 +20,8 @@
     "rust:lint": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
     "rust:fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml --all",
     "rust:test": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "check": "bun run lint && bun run typecheck && bun run test && bun run rust:lint && bun run rust:test"
+    "check": "bun run lint && bun run typecheck && bun run test && bun run rust:lint && bun run rust:test",
+    "fetch:needle": "bun scripts/fetch-needle.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

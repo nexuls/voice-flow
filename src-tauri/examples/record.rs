@@ -21,7 +21,9 @@ fn main() {
         other => eprintln!("\n{other:?}"),
     });
     let mut cap = CpalCapture::new();
-    let info = cap.start(&CaptureConfig::default(), events).expect("start capture");
+    let info = cap
+        .start(&CaptureConfig::default(), events)
+        .expect("start capture");
     eprintln!("recording {secs}s from {info:?}");
     std::thread::sleep(Duration::from_secs_f64(secs));
     let rec = cap.finish().expect("finish capture");

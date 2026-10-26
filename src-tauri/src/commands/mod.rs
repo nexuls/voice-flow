@@ -1,5 +1,7 @@
 //! Typed Tauri commands exposed to the frontend.
 
+pub mod model;
+
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 

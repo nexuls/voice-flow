@@ -23,6 +23,7 @@ never leaves your computer.
 
 ```sh
 bun install
+bun run fetch:needle  # official Needle engine for this platform (pinned, SHA-256 verified)
 bun run app:dev       # run the desktop app with hot reload
 bun run dev           # frontend only (http://localhost:1420)
 ```
@@ -39,6 +40,25 @@ bun run dev           # frontend only (http://localhost:1420)
 | `bun run check`     | All of the above                 |
 | `bun run build`     | Production frontend build        |
 | `bun run app:build` | Production desktop bundle        |
+
+## Speech model
+
+The app links the official prebuilt [Needle](https://github.com/cactus-compute/needle)
+engine (`libneedle.a`, Apache-2.0). It runs the
+[Cactus Whistle](https://huggingface.co/Cactus-Compute/whistle) model
+(`whistle.cact`, 16.9 MB, Apache-2.0). Neither file is committed:
+
+- `bun run fetch:needle` downloads the engine into `src-tauri/vendor/needle/`.
+- The model is installed from inside the app on first run. During
+  development you can also run
+  `cargo run --manifest-path src-tauri/Cargo.toml --example install_model -- ~/.local/share/dev.voiceflow.app/models`.
+
+Both are pinned to a specific Hugging Face revision and checked against
+SHA-256 checksums.
+
+Supported engine targets: `linux-x86_64`, `linux-arm64`, `macos-arm64`,
+`windows-x86_64` and `windows-arm64`. Needle publishes no Intel macOS build.
+On Linux, libc++ is linked statically (Arch: `libc++ libc++abi`).
 
 ## License
 

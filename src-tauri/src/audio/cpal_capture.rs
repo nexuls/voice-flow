@@ -301,11 +301,25 @@ impl AudioCaptureService for CpalCapture {
                 let ch = channels.max(1) as usize;
                 while !thread_stop.load(Ordering::SeqCst) && !shared.fatal.load(Ordering::SeqCst) {
                     std::thread::sleep(DRAIN_INTERVAL);
-                    drain(&mut consumer, ch, &shared, &mut acc, &events, &mut seen_dropped);
+                    drain(
+                        &mut consumer,
+                        ch,
+                        &shared,
+                        &mut acc,
+                        &events,
+                        &mut seen_dropped,
+                    );
                 }
                 // Release the microphone before the (fast) conversion.
                 drop(stream);
-                drain(&mut consumer, ch, &shared, &mut acc, &events, &mut seen_dropped);
+                drain(
+                    &mut consumer,
+                    ch,
+                    &shared,
+                    &mut acc,
+                    &events,
+                    &mut seen_dropped,
+                );
                 if shared.fatal.load(Ordering::SeqCst) {
                     return Err(CaptureError::Disconnected);
                 }
@@ -452,10 +466,13 @@ mod tests {
             }
         });
         let mut cap = CpalCapture::new();
-        let info = cap.start(&CaptureConfig::default(), events.clone()).unwrap();
+        let info = cap
+            .start(&CaptureConfig::default(), events.clone())
+            .unwrap();
         eprintln!("{info:?}");
         assert_eq!(
-            cap.start(&CaptureConfig::default(), events.clone()).unwrap_err(),
+            cap.start(&CaptureConfig::default(), events.clone())
+                .unwrap_err(),
             CaptureError::AlreadyRecording
         );
         std::thread::sleep(Duration::from_millis(1000));

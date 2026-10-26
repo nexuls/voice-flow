@@ -208,7 +208,11 @@ impl Accumulator {
         }
         let frames = (data.len() / self.channels).min(self.room());
         let start = self.mono.len();
-        convert::downmix_into(&data[..frames * self.channels], self.channels, &mut self.mono);
+        convert::downmix_into(
+            &data[..frames * self.channels],
+            self.channels,
+            &mut self.mono,
+        );
         self.meter.push(&self.mono[start..], emit_level);
         self.check_limit()
     }
@@ -265,7 +269,10 @@ mod tests {
         // 0.5 s of stereo in uneven chunks, crossing level-window boundaries.
         let data = vec![0.25f32; 48_000];
         for chunk in data.chunks(960 * 2 + 2) {
-            assert_eq!(acc.push_interleaved(chunk, |_| levels += 1), PushOutcome::Ok);
+            assert_eq!(
+                acc.push_interleaved(chunk, |_| levels += 1),
+                PushOutcome::Ok
+            );
         }
         assert_eq!(acc.frames(), 24_000);
         assert_eq!(levels, 15, "30 per second for 0.5 s");
@@ -277,12 +284,18 @@ mod tests {
     #[test]
     fn limit_is_enforced_and_reported_once() {
         let mut acc = Accumulator::new(16_000, 1, Duration::from_secs(1));
-        assert_eq!(acc.push_interleaved(&[0.1; 10_000], |_| {}), PushOutcome::Ok);
+        assert_eq!(
+            acc.push_interleaved(&[0.1; 10_000], |_| {}),
+            PushOutcome::Ok
+        );
         assert_eq!(
             acc.push_interleaved(&[0.1; 10_000], |_| {}),
             PushOutcome::LimitReached
         );
-        assert_eq!(acc.push_interleaved(&[0.1; 10_000], |_| {}), PushOutcome::Ok);
+        assert_eq!(
+            acc.push_interleaved(&[0.1; 10_000], |_| {}),
+            PushOutcome::Ok
+        );
         assert_eq!(acc.frames(), 16_000);
         assert!(acc.finish(1).unwrap().limit_reached);
     }

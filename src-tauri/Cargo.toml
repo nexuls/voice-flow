@@ -33,10 +33,15 @@ cpal = "0.18"
 rtrb = "0.4"
 rubato = "5"
 zeroize = "1"
+sha2 = "0.10"
+ureq = { version = "3", default-features = false, features = ["rustls"] }
 
 
 [features]
-default = ["layer-shell"]
+default = ["layer-shell", "needle"]
+# Link the official Cactus Needle engine for on-device speech recognition.
+# Requires `bun run fetch:needle` before building.
+needle = []
 # Wayland layer-shell overlay placement (Linux). Needs the system gtk-layer-shell library.
 layer-shell = ["dep:gtk-layer-shell", "dep:gtk"]
 
@@ -57,4 +62,13 @@ libc = "0.2.191"
 
 [dev-dependencies]
 hound = "3.5"
+tempfile = "3.27.0"
 tokio = { version = "1.54.1", features = ["rt", "macros", "time", "test-util"] }
+
+[[example]]
+name = "bench_whistle"
+required-features = ["needle"]
+
+[[test]]
+name = "whistle"
+required-features = ["needle"]

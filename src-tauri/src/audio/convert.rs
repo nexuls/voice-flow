@@ -37,8 +37,14 @@ pub fn resample_to_16k(input: &[f32], rate: u32) -> Result<Vec<f32>, ResampleErr
         return Ok(input.to_vec());
     }
     let err = |e: &dyn std::fmt::Display| ResampleError(e.to_string());
-    let mut resampler = Fft::<f32>::new(rate as usize, TARGET_RATE as usize, 1024, 1, FixedSync::Input)
-        .map_err(|e| err(&e))?;
+    let mut resampler = Fft::<f32>::new(
+        rate as usize,
+        TARGET_RATE as usize,
+        1024,
+        1,
+        FixedSync::Input,
+    )
+    .map_err(|e| err(&e))?;
     let needed = resampler.process_all_needed_output_len(input.len());
     let mut output = vec![0.0f32; needed];
     let in_adapter = InterleavedSlice::new(input, 1, input.len()).map_err(|e| err(&e))?;

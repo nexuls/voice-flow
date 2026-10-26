@@ -76,3 +76,13 @@ device callback (real-time)          capture thread (every 10 ms)             fi
   microphone is only in use while recording. Opening took about 63 ms on the test machine.
 - The callback never allocates, locks or blocks.
 - Buffers are bounded by `max_duration` (default 120 s, hard cap 600 s).
+
+## Speech engine
+
+- `build.rs` links `vendor/needle/<platform>/libneedle.a`, fetched and
+  verified by `scripts/fetch-needle.ts`, plus libc++ (static on Linux).
+  `--no-default-features` builds without the engine.
+- Needle keeps one global model per kind and has no unload call. The app
+  loads the model once and keeps the bytes for the process lifetime.
+- The engine call cannot be interrupted. Cancelling discards the result, and
+  the workflow's session ids drop late results.

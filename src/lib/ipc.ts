@@ -5,6 +5,8 @@ import {
   type AudioLevel,
   type BackendPreference,
   EVENTS,
+  type ModelInfo,
+  type ModelProgress,
   type ShortcutStatus,
   type StateView,
   type Transition,
@@ -17,6 +19,10 @@ export const api = {
   shortcutStatus: () => invoke<ShortcutStatus>("shortcut_status"),
   setShortcut: (accelerator: string, backend?: BackendPreference) =>
     invoke<ShortcutStatus>("set_shortcut", { accelerator, backend }),
+  modelInfo: () => invoke<ModelInfo>("model_info"),
+  installModel: () => invoke<ModelInfo>("install_model"),
+  cancelModelInstall: () => invoke<void>("cancel_model_install"),
+  removeModel: () => invoke<ModelInfo>("remove_model"),
 };
 
 export const on = {
@@ -26,6 +32,8 @@ export const on = {
     listen<ShortcutStatus>(EVENTS.shortcutStatus, (e) => cb(e.payload)),
   audioLevel: (cb: (l: AudioLevel) => void): Promise<UnlistenFn> =>
     listen<AudioLevel>(EVENTS.audioLevel, (e) => cb(e.payload)),
+  modelProgress: (cb: (p: ModelProgress) => void): Promise<UnlistenFn> =>
+    listen<ModelProgress>(EVENTS.modelProgress, (e) => cb(e.payload)),
 };
 
 /** True when running inside the Tauri webview rather than a plain browser. */

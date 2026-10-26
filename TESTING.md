@@ -23,6 +23,42 @@ cargo test --manifest-path src-tauri/Cargo.toml -- --ignored microphone --nocapt
 cargo run --manifest-path src-tauri/Cargo.toml --example record -- /tmp/check.wav 3
 ```
 
+### Real speech model
+
+```sh
+bun run fetch:needle
+cargo run --manifest-path src-tauri/Cargo.toml --example install_model -- ~/.local/share/dev.voiceflow.app/models
+cargo test --manifest-path src-tauri/Cargo.toml --test whistle -- --ignored --nocapture
+```
+
+This test covers: not loaded, missing model, corrupt model, load, the known
+English recording (exact keywords), German detection, forced language, word
+timestamps, silence, empty audio, 40 s windowing and the service thread.
+
+### Benchmark
+
+```sh
+cargo run --release --manifest-path src-tauri/Cargo.toml --example bench_whistle -- \
+  ~/.local/share/dev.voiceflow.app/models/whistle.cact src-tauri/tests/fixtures/quick_brown_fox_en.wav 3
+```
+
+Baseline on an AMD Ryzen 5 5500H (8 logical CPUs available to the process), Linux, warm engine, middle of 3 runs:
+
+| Audio | Inference | TTFT   | Real-time factor |
+| ----- | --------- | ------ | ---------------- |
+| 1 s   | 30 ms     | 11 ms  | 0.03             |
+| 3 s   | 83 ms     | 28 ms  | 0.03             |
+| 5 s   | 149 ms    | 53 ms  | 0.03             |
+| 7 s   | 674 ms    | 596 ms | 0.10             |
+| 10 s  | 987 ms    | 837 ms | 0.10             |
+| 30 s  | 3.0 s     | 2.5 s  | 0.10             |
+| 60 s  | 7.3 s     | 2.5 s  | 0.12             |
+
+Between 5 s and 7 s the engine's time to first token jumps from about 10 ms to
+about 85 ms per second of audio. This happens inside Needle. Splitting audio
+into ≤ 5 s chunks could avoid it but may cut words at the boundaries, so it is
+not done without an accuracy evaluation. Model load takes 18–25 ms.
+
 ## Manual procedures
 
 ### Shortcut and state machine (diagnostic mode)

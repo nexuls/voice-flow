@@ -202,6 +202,16 @@ auto-paste off.
 | Dictations completed | 12 / 12. Speech trimmed from 7.5 s to 6.5 s. Release to text: median ≈ 0.8 s (0.76–1.37 s)            |
 | Shutdown             | process exited, no orphaned windows or sinks                                                          |
 
+### First run and packaging (milestone 10)
+
+| Case                                              | Result                                                                                                                                                                                                                               |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Fresh `XDG_CONFIG_HOME`/`XDG_DATA_HOME`, no model | Settings opens with _Not installed_ and _Install_. Pressing the shortcut shows _Install the speech model…_ and the microphone is not opened.                                                                                         |
+| `bunx tauri build --bundles deb,rpm`              | builds. deb: depends `libgtk-layer-shell0, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0`. Installs `VoiceFlow.desktop`, the hidden `dev.voiceflow.app.desktop` (portal app id) and the license texts. rpm equivalent. |
+| Release binary dependencies                       | no libc++ (statically linked), Needle linked in                                                                                                                                                                                      |
+| AppImage, dmg, nsis                               | not built locally (CI / native machines)                                                                                                                                                                                             |
+| Windows / macOS compile                           | cannot be cross-checked here (`ring` needs the target SDK). Covered by CI jobs, not yet run.                                                                                                                                         |
+
 ## Test environments
 
 | Environment                                                                           | Shortcut backend                                       | Result                                                                                                                                                |

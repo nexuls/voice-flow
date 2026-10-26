@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Merged into the bundle's Info.plist by Tauri. -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>VoiceFlow records your voice while you hold the dictation shortcut. Audio is processed on this Mac and never sent anywhere.</string>
+  <!-- Background utility: no Dock icon. Settings opens from the menu bar. -->
+  <key>LSUIElement</key>
+  <true/>
+</dict>
+</plist>

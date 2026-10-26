@@ -39,4 +39,16 @@ on-device with Cactus Whistle on the Needle engine.
 - [x] 7. Reliable text insertion
 - [x] 8. Settings and configuration
 - [x] 9. Reliability and accessibility
-- [ ] 10. Packaging and release readiness
+- [x] 10. Packaging and release readiness
+
+## Open items
+
+- Test Windows and macOS on real hardware. Run the CI workflow on GitHub.
+- Windows engine: verify linking `windows-x86_64/libneedle.a` with an LLVM-MinGW
+  (`x86_64-pc-windows-gnullvm`) toolchain, or use the official Windows wheel's DLL.
+- Test X11, GNOME, KDE and Hyprland sessions, and live pastes into terminals.
+- Release signing (Apple notarisation, Authenticode) and an updater.
+- Confirm the project license and add a `LICENSE` file.
+- Future: live partial transcription (`needle_stream_transcribe_*`), custom
+  vocabulary (keyword biasing is already plumbed through `TranscribeOptions`),
+  punctuation controls and text cleanup.

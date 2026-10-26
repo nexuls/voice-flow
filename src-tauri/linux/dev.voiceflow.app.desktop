@@ -1,0 +1,11 @@
+[Desktop Entry]
+# Hidden entry whose file name matches the app id (dev.voiceflow.app). The
+# XDG host Registry portal looks this up before allowing GlobalShortcuts.
+# The visible launcher is VoiceFlow.desktop.
+Type=Application
+Name=VoiceFlow
+Comment=Local push-to-talk dictation
+Exec=voiceflow
+Icon=voiceflow
+Terminal=false
+NoDisplay=true

@@ -36,6 +36,43 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "category": "Productivity",
+    "shortDescription": "Local push-to-talk dictation",
+    "longDescription": "Hold a shortcut, speak, and release: VoiceFlow transcribes your speech on-device with Cactus Whistle and pastes the text into the focused application. No audio leaves your computer.",
+    "publisher": "VoiceFlow contributors",
+    "linux": {
+      "deb": {
+        "depends": [
+          "libgtk-layer-shell0"
+        ],
+        "section": "utils",
+        "files": {
+          "/usr/share/applications/dev.voiceflow.app.desktop": "linux/dev.voiceflow.app.desktop"
+        }
+      },
+      "rpm": {
+        "depends": [
+          "gtk-layer-shell"
+        ],
+        "files": {
+          "/usr/share/applications/dev.voiceflow.app.desktop": "linux/dev.voiceflow.app.desktop"
+        }
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "entitlements": "Entitlements.plist",
+      "hardenedRuntime": true
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "resources": {
+      "licenses/needle-LICENSE.txt": "licenses/needle-LICENSE.txt",
+      "licenses/whistle-LICENSE.txt": "licenses/whistle-LICENSE.txt"
+    }
   }
 }

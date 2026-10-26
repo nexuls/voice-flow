@@ -14,6 +14,7 @@ fn main() {
 fn link_needle() {
     println!("cargo:rerun-if-env-changed=NEEDLE_LIB_DIR");
     println!("cargo:rerun-if-env-changed=NEEDLE_CXX_STATIC");
+    println!("cargo:rerun-if-env-changed=LIBCXX_DIR");
     let os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
     let platform = match (os.as_str(), arch.as_str()) {
@@ -52,12 +53,26 @@ fn link_needle() {
     match os.as_str() {
         "linux" => {
             // Static by default, so the app has no runtime libc++ dependency.
-            if env::var("NEEDLE_CXX_STATIC").as_deref() == Ok("0") {
-                println!("cargo:rustc-link-lib=dylib=c++");
-                println!("cargo:rustc-link-lib=dylib=c++abi");
-            } else {
-                println!("cargo:rustc-link-lib=static=c++");
-                println!("cargo:rustc-link-lib=static=c++abi");
+            // Distributions keep libc++.a in different places (Arch: /usr/lib,
+            // Debian/Ubuntu: /usr/lib/llvm-N/lib), so ask the compiler.
+            let static_dirs = (env::var("NEEDLE_CXX_STATIC").as_deref() != Ok("0"))
+                .then(|| Some((find_static("libc++.a")?, find_static("libc++abi.a")?)))
+                .flatten();
+            match static_dirs {
+                Some((cxx, cxxabi)) => {
+                    println!("cargo:rustc-link-search=native={}", cxx.display());
+                    println!("cargo:rustc-link-search=native={}", cxxabi.display());
+                    println!("cargo:rustc-link-lib=static=c++");
+                    println!("cargo:rustc-link-lib=static=c++abi");
+                }
+                None => {
+                    println!(
+                        "cargo:warning=static libc++ not found; linking libc++ dynamically \
+                         (the app will need libc++ at runtime)"
+                    );
+                    println!("cargo:rustc-link-lib=dylib=c++");
+                    println!("cargo:rustc-link-lib=dylib=c++abi");
+                }
             }
         }
         "macos" => println!("cargo:rustc-link-lib=dylib=c++"),
@@ -66,4 +81,26 @@ fn link_needle() {
         "windows" => println!("cargo:rustc-link-lib=dylib=c++"),
         _ => {}
     }
+}
+
+/// Directory containing `name`, as reported by the C++ compiler driver.
+fn find_static(name: &str) -> Option<PathBuf> {
+    if let Some(dir) = env::var_os("LIBCXX_DIR") {
+        let dir = PathBuf::from(dir);
+        return dir.join(name).exists().then_some(dir);
+    }
+    for cc in ["clang++", "c++", "g++"] {
+        let Ok(out) = std::process::Command::new(cc)
+            .arg(format!("-print-file-name={name}"))
+            .output()
+        else {
+            continue;
+        };
+        let path = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+        // Without a match, the driver echoes the bare name back.
+        if path.is_absolute() && path.exists() {
+            return path.canonicalize().ok()?.parent().map(PathBuf::from);
+        }
+    }
+    None
 }

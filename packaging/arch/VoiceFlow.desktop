@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=VoiceFlow
+Comment=Local push-to-talk dictation
+Exec=voiceflow
+Icon=voiceflow
+Terminal=false
+Categories=Utility;Accessibility;
+StartupWMClass=voiceflow

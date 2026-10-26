@@ -1,0 +1,102 @@
+# Maintainer: VoiceFlow contributors
+#
+# Builds VoiceFlow from the latest commit of this local checkout (uncommitted
+# changes are not included). Run from this directory:
+#
+#   makepkg -si
+#
+# namcap reports "File referenced in $startdir": expected, because the source
+# is this checkout. Switch the git source to a remote URL once one exists.
+#
+# The speech model is not part of the package. Install it from Settings on
+# first run (one-time download, checksum-verified).
+
+pkgname=voiceflow-git
+pkgver=0.1.0.r10.gc12744f
+pkgrel=1
+provides=('voiceflow')
+conflicts=('voiceflow')
+pkgdesc='Local push-to-talk dictation using Cactus Whistle (no cloud)'
+arch=('x86_64' 'aarch64')
+url='https://huggingface.co/Cactus-Compute/whistle'
+license=('Apache-2.0')
+depends=(
+  'alsa-lib'
+  'cairo'
+  'dbus'
+  'hicolor-icon-theme'
+  'libgcc'
+  'gdk-pixbuf2'
+  'glib2'
+  'glibc'
+  'gtk-layer-shell'
+  'gtk3'
+  'libsoup3'
+  'libxkbcommon'
+  'webkit2gtk-4.1'
+)
+makedepends=('bun' 'cargo' 'clang' 'git' 'libc++' 'libc++abi')
+optdepends=('libayatana-appindicator: tray icon')
+install=voiceflow.install
+options=('!lto' '!debug')
+
+# Official prebuilt Needle engine, pinned to the same revision and checksums
+# as scripts/fetch-needle.ts. It is linked statically into the binary.
+_needle_rev=d6c7d6a2e9655505e0f8e23339356dd1705900eb
+_needle_url="https://huggingface.co/Cactus-Compute/needle3/resolve/${_needle_rev}"
+
+source=("voiceflow::git+file://${startdir}/../.."
+        'VoiceFlow.desktop')
+source_x86_64=("libneedle.a::${_needle_url}/linux-x86_64/libneedle.a"
+               "needle.h::${_needle_url}/linux-x86_64/needle.h")
+source_aarch64=("libneedle.a::${_needle_url}/linux-arm64/libneedle.a"
+                "needle.h::${_needle_url}/linux-arm64/needle.h")
+sha256sums=('SKIP'
+            'af31b9726d54255df6dafdd32aec927ac46998f1a6ef14cdcc1f1157f990322e')
+sha256sums_x86_64=('2f281877e24fed2658187a32d9a26e74c32d4f273ac9a2b36180b3a6e85942da'
+                   'a27dac4b3239eead91d124b7f7dbce5495c13019903fd817b68c16d39b055a99')
+sha256sums_aarch64=('d54f0d83963c56eb79181929827c9f9ff405891d50cd12974c2b0f6485dd07af'
+                    'a27dac4b3239eead91d124b7f7dbce5495c13019903fd817b68c16d39b055a99')
+noextract=('libneedle.a')
+
+pkgver() {
+  cd voiceflow
+  local base
+  base=$(sed -n 's/^ *"version": "\(.*\)",$/\1/p' src-tauri/tauri.conf.json | head -n1)
+  printf '%s.r%s.g%s' "$base" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  mkdir -p needle
+  cp -L libneedle.a needle.h needle/
+
+  cd voiceflow
+  # Downloads happen here; build() runs offline.
+  bun install --frozen-lockfile
+  cd src-tauri
+  cargo fetch --locked --target "$(rustc --print host-tuple)"
+}
+
+build() {
+  cd voiceflow
+  export NEEDLE_LIB_DIR="$srcdir/needle"
+  bun run tauri build --no-bundle -- --frozen
+}
+
+package() {
+  cd voiceflow
+  install -Dm755 src-tauri/target/release/voiceflow "$pkgdir/usr/bin/voiceflow"
+
+  install -Dm644 "$srcdir/VoiceFlow.desktop" "$pkgdir/usr/share/applications/VoiceFlow.desktop"
+  # Hidden entry matching the app id; the GlobalShortcuts portal requires it.
+  install -Dm644 src-tauri/linux/dev.voiceflow.app.desktop \
+    "$pkgdir/usr/share/applications/dev.voiceflow.app.desktop"
+
+  install -Dm644 src-tauri/icons/32x32.png "$pkgdir/usr/share/icons/hicolor/32x32/apps/voiceflow.png"
+  install -Dm644 src-tauri/icons/128x128.png "$pkgdir/usr/share/icons/hicolor/128x128/apps/voiceflow.png"
+  install -Dm644 src-tauri/icons/128x128@2x.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/voiceflow.png"
+  install -Dm644 src-tauri/icons/icon.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/voiceflow.png"
+
+  install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" \
+    src-tauri/licenses/needle-LICENSE.txt src-tauri/licenses/whistle-LICENSE.txt THIRD_PARTY_NOTICES.md
+}

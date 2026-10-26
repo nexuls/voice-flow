@@ -37,6 +37,14 @@ on Linux).
 Build packages as described in [Building releases](#building-releases). On
 Linux, install the `.deb`, `.rpm` or AppImage.
 
+On Arch Linux, build and install a pacman package from the latest commit of
+your checkout (needs `bun` from the `extra` repository):
+
+```sh
+cd packaging/arch
+makepkg -si          # installs voiceflow-git; remove with: sudo pacman -R voiceflow-git
+```
+
 ### Permissions
 
 | Platform                 | What                                                              | Why                                                                                           |

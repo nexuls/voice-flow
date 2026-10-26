@@ -1,0 +1,8 @@
+post_install() {
+  cat <<'MSG'
+==> VoiceFlow: on first start, install the speech model from Settings.
+==> On Wayland compositors without the GlobalShortcuts portal (niri, sway),
+==> the shortcut needs read access to /dev/input:
+==>   sudo usermod -aG input "$USER"   (then log in again)
+MSG
+}

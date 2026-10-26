@@ -1,0 +1,7 @@
+# makepkg output and downloads
+/src/
+/pkg/
+/voiceflow/
+*.pkg.tar.*
+libneedle.a
+needle.h

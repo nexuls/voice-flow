@@ -15,6 +15,14 @@ bun run rust:test      # Rust unit tests
 cargo test --manifest-path src-tauri/Cargo.toml -- --ignored uinput
 ```
 
+```sh
+# Records 1 s from the default microphone and checks duration, levels and device reuse
+cargo test --manifest-path src-tauri/Cargo.toml -- --ignored microphone --nocapture
+
+# Writes exactly what the engine receives (16 kHz mono) for listening checks
+cargo run --manifest-path src-tauri/Cargo.toml --example record -- /tmp/check.wav 3
+```
+
 ## Manual procedures
 
 ### Shortcut and state machine (diagnostic mode)
@@ -57,6 +65,7 @@ touchpad.
 | Environment                                                                           | Shortcut backend                                       | Result                                                                                                                                                |
 | ------------------------------------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Arch Linux, niri 26.04 (Wayland), xdg-desktop-portal 1.22 with the gtk/gnome backends | Portal refused the bind (`Other`). Fell back to evdev. | evdev: press/release verified with uinput and in the app. Overlay: layer surface verified by screenshot. It does not take focus (`niri msg windows`). |
+| Same machine, PipeWire default source (48 kHz, stereo, f32)                           | n/a                                                    | Capture opened in 63 ms. 1 s recorded, 29 level events, 0 dropped frames                                                                              |
 | X11                                                                                   | global-hotkey                                          | not yet tested                                                                                                                                        |
 | Windows                                                                               | global-hotkey                                          | not yet tested                                                                                                                                        |
 | macOS                                                                                 | global-hotkey                                          | not yet tested                                                                                                                                        |

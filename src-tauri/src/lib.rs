@@ -1,5 +1,6 @@
 //! VoiceFlow native backend.
 
+pub mod audio;
 pub mod commands;
 pub mod events;
 pub mod executor;

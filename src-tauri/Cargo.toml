@@ -29,6 +29,10 @@ serde_json = "1"
 tauri-plugin-global-shortcut = "2"
 tokio = { version = "1.54.1", features = ["rt", "sync", "time", "macros"] }
 futures-util = "0.3.34"
+cpal = "0.18"
+rtrb = "0.4"
+rubato = "5"
+zeroize = "1"
 
 
 [features]
@@ -52,4 +56,5 @@ gtk-layer-shell = { version = "0.8.2", optional = true, features = ["v0_6"] }
 libc = "0.2.191"
 
 [dev-dependencies]
+hound = "3.5"
 tokio = { version = "1.54.1", features = ["rt", "macros", "time", "test-util"] }

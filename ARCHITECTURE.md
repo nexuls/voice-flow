@@ -61,3 +61,18 @@ renders state and sends typed commands.
   visible, because GTK needs a realized window for input shapes.
 - The frontend (`src/components/overlay`) only renders the phase it gets from
   `dictation://transition` and the levels from `audio://level`.
+
+## Audio pipeline
+
+```
+device callback (real-time)          capture thread (every 10 ms)             finish()
+ T → f32, whole frames only  ──rtrb──▶ Accumulator: downmix → mono      ──▶  FFT resample → 16 kHz
+ ring full → count dropped             level meter → 30 Hz events            Recording (zeroed on drop)
+                                       dropped → silence (keeps timing)
+                                       max duration → LimitReached
+```
+
+- The device is opened per recording and closed on finish or abort, so the
+  microphone is only in use while recording. Opening took about 63 ms on the test machine.
+- The callback never allocates, locks or blocks.
+- Buffers are bounded by `max_duration` (default 120 s, hard cap 600 s).

@@ -10,8 +10,22 @@ VoiceFlow is local-first. Speech recognition runs entirely on your computer.
 - **Transcripts:** held in memory only until they are inserted. If insertion
   fails, the transcript is kept in memory so you can copy it manually.
   Transcripts are never logged or persisted.
+- **Window information:** only the focused window's id and application id
+  (for example `kitty`) are read, to avoid pasting into the wrong window and to
+  choose the paste shortcut. Titles and contents are never read.
 - **Logs:** contain timings, state names and error kinds only, never audio or
   transcript text.
+
+## Clipboard
+
+To paste, VoiceFlow briefly replaces the clipboard with the transcript. If
+the clipboard held text, that text is read beforehand and put back about
+0.6 s after the paste, but only if the clipboard still holds the transcript.
+Non-text clipboard content (images, files) cannot be saved and is replaced
+by the transcript. Clipboard contents are never logged or stored.
+
+When the focused window changed during transcription, or no paste mechanism
+is available, the transcript is left on the clipboard for you to paste.
 
 ## Network activity
 
@@ -30,4 +44,6 @@ Python package document opt-out telemetry. VoiceFlow uses neither.
 | Permission                   | Platform                           | Used for                                                                                                                                                                             |
 | ---------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Microphone                   | all                                | Recording while the shortcut is held                                                                                                                                                 |
+| Accessibility                | macOS                              | Sending the paste keystroke (Cmd+V)                                                                                                                                                  |
+| `/dev/uinput` write access   | Linux, fallback only               | Paste keystroke on compositors without the virtual-keyboard protocol                                                                                                                 |
 | `input` group (`/dev/input`) | Linux, evdev shortcut backend only | Detecting the push-to-talk key on Wayland compositors without the GlobalShortcuts portal. Only the configured key combination is evaluated. Other keys are ignored and never stored. |

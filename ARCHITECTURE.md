@@ -104,3 +104,25 @@ TranscriptReady ─▶ Insert → InsertionDone / InsertionFailed (transcript ke
 
 Each dictation emits `diagnostics://timings` with latencies only.
 `VOICEFLOW_DIAGNOSTIC=1` swaps the live executor for the simulated one.
+
+## Text insertion
+
+```
+press   → focus.focused()          remember target window id + app id
+insert  → focus.focused() again    changed? → copy only (CopiedToClipboard)
+        → save clipboard text      (text only; images/files cannot be saved)
+        → set transcript
+        → paste chord              (Ctrl+V | Ctrl+Shift+V in terminals | Cmd+V)
+             failed twice → copy only (CopiedToClipboard)
+        → report Pasted
+after   → wait 600 ms → clipboard still ours? → restore saved text
+```
+
+| Session                       | Keystrokes                                               | Focus check           | Status     |
+| ----------------------------- | -------------------------------------------------------- | --------------------- | ---------- |
+| Wayland (niri)                | virtual keyboard (enigo), uinput fallback                | niri IPC              | verified   |
+| Wayland (Hyprland, sway, KDE) | virtual keyboard                                         | Hyprland IPC / none   | not tested |
+| Wayland (GNOME)               | uinput if `/dev/uinput` is writable, otherwise copy only | none                  | not tested |
+| X11                           | XTest                                                    | `_NET_ACTIVE_WINDOW`  | not tested |
+| Windows                       | SendInput                                                | `GetForegroundWindow` | not tested |
+| macOS                         | CGEvent (Accessibility permission)                       | none                  | not tested |

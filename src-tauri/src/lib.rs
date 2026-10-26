@@ -92,7 +92,7 @@ pub fn run() {
             ));
             let engine_ready = Arc::new(AtomicBool::new(false));
             let insertion = Arc::new(insertion::InsertionWorker::spawn(Box::new(
-                insertion::ClipboardInsertion::new(),
+                insertion::PasteInsertion::system(insertion::PasteOptions::default()),
             )));
             let live_config = Arc::new(RwLock::new(live::LiveConfig::default()));
 

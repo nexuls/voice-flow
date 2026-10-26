@@ -26,6 +26,9 @@ function Label({ children, muted }: { children: ReactNode; muted?: boolean }) {
   );
 }
 
+const PASTE_HINT =
+  typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent) ? "⌘V" : "Ctrl+V";
+
 /** Content of the floating dictation pill for each workflow phase. */
 export function OverlayPill({ state, levels, onCopy }: Props) {
   if (state.phase === "idle") return null;
@@ -63,7 +66,9 @@ export function OverlayPill({ state, levels, onCopy }: Props) {
       content = (
         <Row label={state.outcome === "pasted" ? "Inserted" : "Copied to clipboard"}>
           <Check className="size-4 text-ok" strokeWidth={2.5} />
-          <Label>{state.outcome === "pasted" ? "Inserted" : "Copied — paste with Ctrl+V"}</Label>
+          <Label>
+            {state.outcome === "pasted" ? "Inserted" : `Copied — paste with ${PASTE_HINT}`}
+          </Label>
         </Row>
       );
       break;

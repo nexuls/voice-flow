@@ -36,6 +36,7 @@ zeroize = "1"
 sha2 = "0.10"
 ureq = { version = "3", default-features = false, features = ["rustls"] }
 arboard = { version = "3.7.0", features = ["wayland-data-control"], default-features = false }
+enigo = { version = "0.6", features = ["wayland"] }
 
 
 [features]
@@ -60,6 +61,10 @@ evdev = "0.13.2"
 gtk = { version = "0.18", optional = true }
 gtk-layer-shell = { version = "0.8.2", optional = true, features = ["v0_6"] }
 libc = "0.2.191"
+x11rb = "0.13"
+
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
 
 [dev-dependencies]
 hound = "3.5"

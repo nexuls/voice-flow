@@ -36,7 +36,7 @@ on-device with Cactus Whistle on the Needle engine.
 - [x] 4. Microphone capture
 - [x] 5. Cactus Whistle integration
 - [x] 6. End-to-end push-to-talk workflow
-- [ ] 7. Reliable text insertion
+- [x] 7. Reliable text insertion
 - [ ] 8. Settings and configuration
 - [ ] 9. Reliability and accessibility
 - [ ] 10. Packaging and release readiness

@@ -128,6 +128,28 @@ The transcript matched except for 1–3 words between runs. Debug builds
 resample about 70 times slower (≈ 315 ms for 8 s), so measure latency only
 on release builds.
 
+### Automatic paste (Linux, Wayland)
+
+`scripts/dev/paste_target.py <out.txt> <seconds>` opens a GTK window that
+writes its text buffer to `out.txt`. Steps:
+
+1. Save your clipboard, then `printf 'VF-ORIGINAL-CLIPBOARD' | wl-copy`.
+2. Start VoiceFlow with the virtual-microphone setup above, then open the target window so it has focus.
+3. Run the hold/play sequence from the end-to-end test.
+4. The window should contain the transcript, and `wl-paste` should print `VF-ORIGINAL-CLIPBOARD` again (restored).
+5. Focus change: open a second window while recording. Neither window should
+   receive text, and the transcript should stay on the clipboard (`outcome: CopiedToClipboard`).
+6. `VOICEFLOW_PASTE_BACKEND=uinput` forces the uinput backend.
+
+Results on niri 26.04:
+
+| Case                                               | Result                                                      |
+| -------------------------------------------------- | ----------------------------------------------------------- |
+| Paste via virtual keyboard                         | transcript inserted into the GTK window, clipboard restored |
+| Paste via uinput (forced)                          | transcript inserted, clipboard restored                     |
+| Focus moved to another window during transcription | nothing pasted, transcript left on the clipboard            |
+| Paste into a terminal                              | not tested live (unit-tested chord selection)               |
+
 ## Test environments
 
 | Environment                                                                           | Shortcut backend                                       | Result                                                                                                                                                |

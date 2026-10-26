@@ -386,7 +386,11 @@ impl LiveExecutor {
                 ctx.timings.finalize_ms = Some(ms(finalize));
                 ctx.timings.recorded_ms = Some(ms(rec.duration()));
             });
-            tracing::debug!(?rec, convert_ms = format!("{:.1}", rec.convert_ms), "recording finished");
+            tracing::debug!(
+                ?rec,
+                convert_ms = format!("{:.1}", rec.convert_ms),
+                "recording finished"
+            );
 
             if rec.duration() < MIN_RECORDING {
                 h.send(Input::CaptureEmpty {

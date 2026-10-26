@@ -31,7 +31,7 @@ on-device with Cactus Whistle on the Needle engine.
 ## Milestones
 
 - [x] 1. Project foundation
-- [ ] 2. Native shortcut prototype
+- [x] 2. Native shortcut prototype
 - [ ] 3. Floating OSD
 - [ ] 4. Microphone capture
 - [ ] 5. Cactus Whistle integration
